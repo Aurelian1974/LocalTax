@@ -1,17 +1,17 @@
 # State
-task: Choose architecture baseline for LocalTax (profile.yml + ADR-0001)
-class: architecture/XL/structural
+task: Add architecture fitness tests from profile.yml
+class: architecture/L/structural
 modules: TaxpayerRegister: pure-slices | Taxation: sliced-domain | Receivables: sliced-domain | Enforcement: sliced-domain | Reporting: pure-slices | OnlinePayments: hexagonal-integration
 plan: none
 adrs: docs/adr/0001-architecture-baseline.md
 base: 05075f7
-sha: eb23fd4
+sha: ad9ab9460971fa19d6ce00dcb5737f861338fa73
 tool: copilot
-phase: architecture
+phase: implementation
 gate: G0 approved
-steps: none
-review_cycles: 0
-next: /add-fitness-tests: generate NetArchTest suite from profile rules R-001..R-008
+steps: done: copy template; add SharedKernel Money; add tests for R-003/R-004/R-005/R-007/R-008; fix review cycles 1-2 | current=review complete | status green
+review_cycles: 2
+next: Build first module slices per profile recipes
 
 ## decisions
 - Domain: Romanian local taxes for a city hall - taxpayer register, assessment of building/land/vehicle taxes, payments & receipts, arrears/penalties, enforcement, certificates & reports
@@ -30,3 +30,5 @@ next: /add-fitness-tests: generate NetArchTest suite from profile rules R-001..R
 - 2026-09-17 13:22 copilot classify state created
 - 2026-09-17 13:31 copilot architecture architect wrote profile.yml (draft) + ADR-0001 (proposed)
 - 2026-09-17 13:40 copilot architecture committed eb23fd4 and pushed to origin/main
+- 2026-09-17 14:05 copilot implementation S1 green: architecture tests pass 8/8
+- 2026-09-17 14:09 copilot implementation S1 green after review cycle 2

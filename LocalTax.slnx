@@ -1,2 +1,4 @@
 <Solution>
+  <Project Path="src\LocalTax.SharedKernel\LocalTax.SharedKernel.csproj" />
+  <Project Path="tests\LocalTax.ArchitectureTests\LocalTax.ArchitectureTests.csproj" />
 </Solution>

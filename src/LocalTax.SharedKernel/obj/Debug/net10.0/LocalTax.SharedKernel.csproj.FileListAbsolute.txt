@@ -1,0 +1,12 @@
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\bin\Debug\net10.0\LocalTax.SharedKernel.deps.json
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\bin\Debug\net10.0\LocalTax.SharedKernel.dll
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\bin\Debug\net10.0\LocalTax.SharedKernel.pdb
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\obj\Debug\net10.0\LocalTax.SharedKernel.GeneratedMSBuildEditorConfig.editorconfig
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\obj\Debug\net10.0\LocalTax.SharedKernel.AssemblyInfoInputs.cache
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\obj\Debug\net10.0\LocalTax.SharedKernel.AssemblyInfo.cs
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\obj\Debug\net10.0\LocalTax.SharedKernel.csproj.CoreCompileInputs.cache
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\obj\Debug\net10.0\LocalTax.SharedKernel.sourcelink.json
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\obj\Debug\net10.0\LocalTax.SharedKernel.dll
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\obj\Debug\net10.0\refint\LocalTax.SharedKernel.dll
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\obj\Debug\net10.0\LocalTax.SharedKernel.pdb
+D:\Projects\LocalTax\LocalTax\src\LocalTax.SharedKernel\obj\Debug\net10.0\ref\LocalTax.SharedKernel.dll
