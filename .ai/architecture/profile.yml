@@ -4,14 +4,14 @@
 # Schema reference: .claude/skills/architecture-composition/references/profile-schema.md
 # ─────────────────────────────────────────────────────────────────────────────
 version: 1
-status: draft            # draft | active  (agents refuse M/L/XL tasks while draft, except /choose-architecture)
+status: active            # draft | active  (agents refuse M/L/XL tasks while draft, except /choose-architecture)
 
 system:
-  name: CHANGE_ME
-  root_namespace: Company.Product
+  name: LocalTax
+  root_namespace: LocalTax
   topology: modular-monolith        # monolith | modular-monolith | microservices
   runtime: dotnet-10
-  frontend: none                    # none | react-ts | blazor | razor-pages
+  frontend: react-ts                # feature-sliced, folders mirror the modules below
   database: sqlserver               # sqlserver | postgresql | ...
   adr: docs/adr/0001-architecture-baseline.md
 
@@ -24,7 +24,7 @@ conventions:
   data_access:
     write: dapper                  # ef-core | dapper | stored-procedures
     read: dapper                    # dapper | stored-procedures | ef-core-no-tracking | views
-  migrations: ef-migrations         # ef-migrations | dbup | sqlproj
+  migrations: ef-migrations         # EF Core exists ONLY in the Migrations project (R-005); runtime access is Dapper
   time: timeprovider                # inject TimeProvider; never DateTime.Now in domain/app code
   testing:
     unit: xunit
@@ -38,27 +38,121 @@ database:
   created_by: user            # baza și schema le aplici tu; agenții doar scriu fișiere
 
 shared_kernel:                      # types every module may reference; keep this list tiny
-  project: Company.Product.SharedKernel
-  allowed: [Result, Error, Money, "strongly-typed ids base"]
+  project: LocalTax.SharedKernel
+  allowed: [Result, Error, Money, Cnp, Cui, FiscalYear, "strongly-typed ids base"]
 
 modules:
-  - name: CHANGE_ME
-    purpose: "One sentence: which business capability this module owns."
-    subdomain: core                 # core | supporting | generic
-    recipe: clean-sliced            # clean-sliced | sliced-domain | pure-slices | hexagonal-integration | layered-legacy
-    # Explicit axis values. The recipe sets defaults; override only with a reason.
-    macro: clean                    # clean | hexagonal | onion | layered | none
-    organization: vertical-slices   # vertical-slices | technical-layers
-    domain_logic: domain-model      # domain-model | transaction-script | table-module
-    cqrs: separate-models           # none | separate-methods | separate-models | separate-stores
-    db_schema: changeme
-    exposes:                        # the ONLY things other modules may use
-      contracts_project: Company.Product.Modules.ChangeMe.Contracts
-      integration_events: []
+  - name: TaxpayerRegister
+    purpose: "Owns the identity and fiscal-domicile data of taxpayers (persons, legal entities)."
+    subdomain: supporting
+    recipe: pure-slices
+    macro: none
+    organization: vertical-slices
+    domain_logic: transaction-script
+    cqrs: separate-methods
+    db_schema: taxpayers
+    exposes:
+      contracts_project: LocalTax.Modules.TaxpayerRegister.Contracts
+      integration_events: [TaxpayerRegistered, TaxpayerDataChanged]
+      queries: [ITaxpayerLookup]
+    consumes: []
+    skills: []
+    notes: "Master data only. CNP/CUI are SharedKernel value objects; no tax rule lives here."
+
+  - name: Taxation
+    purpose: "Establishes the annual tax due for each taxpayer's declared taxable matter (buildings, land, vehicles)."
+    subdomain: core
+    recipe: sliced-domain
+    macro: none
+    organization: vertical-slices
+    domain_logic: domain-model
+    cqrs: separate-models
+    db_schema: taxation
+    exposes:
+      contracts_project: LocalTax.Modules.Taxation.Contracts
+      integration_events: [TaxAssessed, TaxAssessmentCorrected, TaxExemptionGranted]
+      queries: [IAssessmentSummaryQuery]
+    consumes: ["TaxpayerRegister.Contracts: ITaxpayerLookup"]
+    skills: []
+    notes: "Declaration and assessment share one consistency boundary: assessment needs every asset attribute. Rates, zones, ranks and coefficients are legally dated and resolved through TimeProvider, never hardcoded. sliced-domain instead of clean-sliced because the team is 1-3 devs with moderate DDD experience (ADR-0001 records the upgrade path)."
+
+  - name: Receivables
+    purpose: "Keeps every taxpayer's fiscal account by posting debits, receipts and penalties in the legally prescribed allocation order."
+    subdomain: core
+    recipe: sliced-domain
+    macro: none
+    organization: vertical-slices
+    domain_logic: domain-model
+    cqrs: separate-models
+    db_schema: receivables
+    exposes:
+      contracts_project: LocalTax.Modules.Receivables.Contracts
+      integration_events: [PaymentPosted, ReceiptIssued, ArrearsOverdue]
+      queries: [ITaxpayerBalanceQuery]
+    consumes:
+      - "Taxation: TaxAssessed"
+      - "Taxation: TaxAssessmentCorrected"
+      - "TaxpayerRegister.Contracts: ITaxpayerLookup"
+      - "OnlinePayments: OnlinePaymentConfirmed"
+    skills: []
+    notes: "Payment allocation order and penalty accrual (majorari de intarziere) are aggregate invariants: never in SQL, endpoints or UI. Amounts are Money over decimal(19,2); every posting is append-only and audited."
+
+  - name: Enforcement
+    purpose: "Drives the legal recovery procedure for overdue debts (somatie, titlu executoriu, poprire, sechestru)."
+    subdomain: supporting
+    recipe: sliced-domain
+    macro: none
+    organization: vertical-slices
+    domain_logic: domain-model
+    cqrs: separate-methods
+    db_schema: enforcement
+    exposes:
+      contracts_project: LocalTax.Modules.Enforcement.Contracts
+      integration_events: [EnforcementStarted, EnforcementClosed]
       queries: []
-    consumes: []                    # e.g. [ "Partners.Contracts: IPartnerLookup", "Invoicing: InvoiceIssued" ]
-    skills: []                      # extra domain skills, e.g. [ ro-fiscal-compliance ]
-    notes: ""
+    consumes:
+      - "Receivables: ArrearsOverdue"
+      - "Receivables.Contracts: ITaxpayerBalanceQuery"
+      - "TaxpayerRegister.Contracts: ITaxpayerLookup"
+    skills: []
+    notes: "State machine with statutory deadlines; every transition is guarded, dated and audited. No amount is recomputed here - balances come from Receivables."
+
+  - name: Reporting
+    purpose: "Produces the read-only fiscal documents of the city hall (attestation certificates, registers, statutory reports)."
+    subdomain: supporting
+    recipe: pure-slices
+    macro: none
+    organization: vertical-slices
+    domain_logic: table-module
+    cqrs: separate-methods
+    db_schema: reporting
+    exposes:
+      contracts_project: LocalTax.Modules.Reporting.Contracts
+      integration_events: [CertificateIssued]
+      queries: []
+    consumes:
+      - "Receivables.Contracts: ITaxpayerBalanceQuery"
+      - "Taxation.Contracts: IAssessmentSummaryQuery"
+      - "TaxpayerRegister.Contracts: ITaxpayerLookup"
+    skills: []
+    notes: "Only module allowed to read across schemas, through read-only views (exception on R-002). Its own schema holds just the register of issued documents; it never computes tax or penalty amounts."
+
+  - name: OnlinePayments
+    purpose: "Adapts the external payment gateway (Ghiseul.ro) to the internal payment lifecycle."
+    subdomain: generic
+    recipe: hexagonal-integration
+    macro: hexagonal
+    organization: vertical-slices
+    domain_logic: transaction-script
+    cqrs: separate-methods
+    db_schema: onlinepayments
+    exposes:
+      contracts_project: LocalTax.Modules.OnlinePayments.Contracts
+      integration_events: [OnlinePaymentConfirmed, OnlinePaymentFailed]
+      queries: []
+    consumes: ["Receivables.Contracts: ITaxpayerBalanceQuery"]
+    skills: []
+    notes: "Planned boundary, no slices until the gateway contract exists. Anti-corruption layer: gateway DTOs never leave the adapter."
 
 rules:                              # extra, repo-specific rules; each becomes an architecture test if testable
   - id: R-001
@@ -67,6 +161,24 @@ rules:                              # extra, repo-specific rules; each becomes a
   - id: R-002
     text: "No cross-schema joins in write paths. Reporting reads go through the Reporting module views."
     enforce: review
+  - id: R-003
+    text: "Contracts projects contain only DTOs, event records and query interfaces: no domain types, no Dapper, no EF Core, no AspNetCore."
+    enforce: test
+  - id: R-004
+    text: "In sliced-domain modules the .Domain namespace does not reference .Features, .Infrastructure, Dapper, EF Core or AspNetCore."
+    enforce: test
+  - id: R-005
+    text: "EF Core is referenced only by the Migrations project; runtime read and write access is Dapper."
+    enforce: test
+  - id: R-006
+    text: "Tax assessment, penalty accrual and payment allocation live in the Domain of Taxation/Receivables: never in SQL, endpoints, jobs or UI."
+    enforce: review
+  - id: R-007
+    text: "Rates, coefficients and legal deadlines are stored with an effective period and resolved via TimeProvider; no hardcoded rates and no DateTime.Now/UtcNow."
+    enforce: test
+  - id: R-008
+    text: "Monetary amounts use Money over decimal(19,2); rounding only through SharedKernel rules."
+    enforce: test
   - id: R-DB-01
     text: "Agents never create, drop or migrate databases and never run sqlcmd, Invoke-Sqlcmd or dotnet ef database update. They only write migration/SQL files; the user applies them."
     enforce: review
@@ -74,4 +186,5 @@ rules:                              # extra, repo-specific rules; each becomes a
     text: "Connection strings containing passwords never go into committed files; use user-secrets."
     enforce: review
 
-exceptions: []                      # - { rule: R-002, scope: "Reporting.Vat", adr: docs/adr/0007-... , expires: 2027-03-01 }
+exceptions:
+  - { rule: R-002, scope: "Reporting (read-only views over other schemas)", adr: docs/adr/0001-architecture-baseline.md, expires: null }
