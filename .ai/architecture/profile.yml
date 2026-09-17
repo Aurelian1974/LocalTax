@@ -29,7 +29,7 @@ conventions:
   time: timeprovider                # inject TimeProvider; never DateTime.Now in domain/app code
   testing:
     unit: xunit
-    integration: localdb           # testcontainers | localdb | none
+    integration: sqlserver         # instance from database.server; test database LocalTax_Tests (ADR-0003, R-DB-04)
     architecture: netarchtest       # netarchtest | archunitnet
 
 database:
@@ -44,7 +44,29 @@ shared_kernel:                      # types every module may reference; keep thi
   project: LocalTax.SharedKernel
   allowed: [Result, Error, Money, Cnp, Cui, FiscalYear, "strongly-typed ids base"]
 
+platform:                           # shared, AspNetCore-dependent plumbing (schema v1 extension, ADR-0003)
+  - project: LocalTax.Platform.Security
+    contains: [Permission, IPermissionCatalog, ICurrentUser, "RequirePermission() endpoint convention"]
+    referenced_by: "module feature slices and the API host; no data access, no Identity types, no module types"
+
 modules:
+  - name: Access
+    purpose: "Owns staff accounts, sign-in sessions, roles as permission bundles and the authentication audit trail."
+    subdomain: generic
+    recipe: pure-slices
+    macro: none
+    organization: vertical-slices
+    domain_logic: transaction-script
+    cqrs: separate-methods
+    db_schema: access
+    exposes:
+      contracts_project: LocalTax.Modules.Access.Contracts
+      integration_events: [StaffAccountDisabled]
+      queries: [IStaffLookup]
+    consumes: []
+    skills: []
+    notes: "Identity Core + SignInManager with module-internal Dapper stores (no EF Core, R-005); AddAccessModule is the only Identity composition point. The principal carries only user id and security stamp; permissions are registered at startup in LocalTax.Platform.Security and resolved per request from a (userId, grantsVersion) cache after a single-query session check. Lockout blocks sign-in only. Modules never reference Access; attribution flows through ICurrentUser."
+
   - name: TaxpayerRegister
     purpose: "Owns the identity and fiscal-domicile data of taxpayers (persons, legal entities)."
     subdomain: supporting
@@ -182,12 +204,37 @@ rules:                              # extra, repo-specific rules; each becomes a
   - id: R-008
     text: "Monetary amounts use Money over decimal(19,2); rounding only through SharedKernel rules."
     enforce: test
+  - id: R-009
+    text: "Authorization only through permission policies; no role-name checks and no [Authorize(Roles = ...)]."
+    enforce: test
+  - id: R-010
+    text: "Only the Access module depends on Microsoft.AspNetCore.Identity / Microsoft.Extensions.Identity.Core types; the host registers the authentication scheme and calls AddAccessModule. Platform.Security contains no data access, no Identity types and no module types."
+    enforce: test
+  - id: R-011
+    text: "Every endpoint mapped under /api/** carries authorization metadata unless listed on the explicit anonymous allow-list (sign-in, antiforgery, health); static files and the SPA fallback are anonymous."
+    enforce: test
+  - id: R-012
+    text: "Every POST/PUT/PATCH/DELETE endpoint validates an antiforgery token explicitly, JSON endpoints included."
+    enforce: test
+  - id: R-013
+    text: "While MustChangePassword is set, only /api/access/me, /api/access/change-password and /api/access/sign-out succeed; every other endpoint returns 403."
+    enforce: test
+  - id: R-014
+    text: "The claims principal carries only user id and security stamp; authorization never reads role or permission claims from the principal."
+    enforce: test
   - id: R-DB-01
     text: "Agents never create, drop or migrate databases and never run sqlcmd, Invoke-Sqlcmd or dotnet ef database update. They only write migration/SQL files; the user applies them."
     enforce: review
   - id: R-DB-02
     text: "Connection strings containing passwords never go into committed files; use user-secrets."
     enforce: review
+  - id: R-DB-03
+    text: "The application connects with a dedicated least-privilege SQL login (never db_owner or sysadmin) so that DENY UPDATE, DELETE on access.AuthAudit is effective; the retention job uses a separate maintenance login."
+    enforce: review
+  - id: R-DB-04
+    text: "Exception to R-DB-01: the integration test fixture may apply DbUp scripts and reset data only on a database whose name ends with _Tests (guard in code, test fails otherwise). The user creates that database; agents never create or drop it."
+    enforce: test
 
 exceptions:
   - { rule: R-002, scope: "Reporting (read-only views over other schemas)", adr: docs/adr/0001-architecture-baseline.md, expires: null }
+  - { rule: R-DB-01, scope: "integration test fixture on databases named *_Tests (R-DB-04)", adr: docs/adr/0003-staff-authentication-and-authorization.md, expires: null }
