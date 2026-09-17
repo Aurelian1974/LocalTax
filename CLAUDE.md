@@ -6,9 +6,15 @@
 2. Before code: identify module → apply its `recipe` → place files per `.claude/skills/architecture-composition/references/placement-rules.md`.
 3. Never add abstractions, packages, mediators, repositories or interfaces the profile does not call for. Never invent APIs, tables, columns, packages — verify in the repo.
 4. Mirror existing profile-compliant code in the same module.
-5. Business rules never in endpoints, EF configurations, UI, or SQL of `domain-model` modules.
+5. Business rules never in endpoints, repositories/SQL mapping, UI, or SQL of `domain-model` modules.
 6. Cannot comply → stop: `DEVIATION: <rule> | <why> | <options>`.
 7. Work larger than one file, schema changes, new module, cross-module behavior → orchestration (`/new-feature`, protocol in skill `orchestration`).
+
+## Database safety (hard rules)
+- No Entity Framework Core. Data access is Dapper over `IDbSession` (writes, one transaction per use case) and `ISqlConnectionFactory` (reads).
+- Agents never create, migrate or query databases: no `sqlcmd`, `Invoke-Sqlcmd`, SSMS scripts, `dotnet ef`, ad-hoc connections, and never enabling `Database:MigrateOnStartup`. The user applies scripts.
+- Schema changes are new DbUp scripts created with `pwsh scripts/New-Migration.ps1`; never edit a migration that was applied or merged. Report which scripts the user must apply.
+- Connection strings and credentials never go into committed files (`appsettings*.json` included); development uses user-secrets.
 
 ## Tool switching (Copilot ⇄ Claude Code)
 - Chat history never transfers. Durable context lives only in files: plan (`.ai/plans/`), state (`.ai/state/current.md`), ADRs, profile.

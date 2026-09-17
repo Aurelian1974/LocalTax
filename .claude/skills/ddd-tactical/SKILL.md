@@ -1,6 +1,6 @@
 ---
 name: ddd-tactical
-description: DDD tactical design in .NET — aggregates and consistency boundaries, invariants, value objects, strongly-typed ids, domain events vs integration events, domain services, factories, repositories, and EF Core mapping that keeps the model persistence-ignorant. Use whenever code touches a module with domain_logic domain-model, when adding business rules, entities or state transitions, or when an entity has public setters and logic lives in handlers.
+description: DDD tactical design in .NET — aggregates and consistency boundaries, invariants, value objects, strongly-typed ids, domain events vs integration events, domain services, factories, repositories, and Dapper persistence of aggregates that keeps the model persistence-ignorant. Use whenever code touches a module with domain_logic domain-model, when adding business rules, entities or state transitions, or when an entity has public setters and logic lives in handlers.
 user-invocable: false
 ---
 # DDD Tactical Patterns
@@ -30,13 +30,13 @@ user-invocable: false
 | Block | Rules |
 |---|---|
 | **Value object** | immutable `record`/`readonly record struct`; validated factory `Create(...) → Result<T>`; equality by value; carries behavior (`Money.Add`, `VatRate.Apply`) |
-| **Strongly-typed id** | `readonly record struct InvoiceId(Guid Value)`; generated with `Guid.CreateVersion7()`; EF value converter |
+| **Strongly-typed id** | `readonly record struct InvoiceId(Guid Value)`; generated with `Guid.CreateVersion7()`; Dapper `SqlMapper.TypeHandler` or `.Value` in parameters |
 | **Entity** | identity within the aggregate; no public setters; only reachable through the root |
 | **Domain event** | past tense, immutable, raised inside aggregate methods, contains ids + facts; module-internal |
 | **Integration event** | lives in Contracts; primitives only; versioned; produced from domain events at the module boundary via outbox |
 | **Domain service** | stateless rule needing several aggregates or external policy data passed in; no I/O inside |
 | **Factory** | static method on the root or dedicated class when creation needs policies |
-| **Repository** | only for aggregate roots, intent-revealing methods; skip it when the module uses a DbContext abstraction (decide once, per profile) |
+| **Repository** | exactly one per aggregate root; `GetAsync`/`AddAsync`/`SaveAsync` (+ intent-revealing lookups); Dapper implementation; never used by queries |
 | **Domain error** | static factory class per aggregate (`InvoiceErrors.AlreadyIssued`) returning `Error` with stable code |
 
 ## Minimal aggregate shape (.NET)
@@ -48,7 +48,7 @@ public sealed class Invoice : AggregateRoot<InvoiceId>
     public InvoiceStatus Status { get; private set; }
     public Money Total { get; private set; }
 
-    private Invoice() { }                                         // EF
+    private Invoice() { }                                         // rehydration only (Invoice.Rehydrate)
 
     public static Result<Invoice> Draft(PartnerId partner, Currency currency) { ... }
 
@@ -71,11 +71,19 @@ public sealed class Invoice : AggregateRoot<InvoiceId>
 }
 ```
 
-## EF Core mapping without polluting the domain
-- `IEntityTypeConfiguration<T>` in Infrastructure; backing fields via `Navigation(x => x.Lines).UsePropertyAccessMode(PropertyAccessMode.Field)`.
-- Value objects → `ComplexProperty` (EF 8+) or owned types; ids → value converters (convention-based).
-- Concurrency → `rowversion` shadow property on the root.
-- Domain events → `SaveChangesInterceptor` collects, dispatches in-module handlers, writes outbox rows in the same transaction.
+## Persistence with Dapper (no EF Core)
+The aggregate knows nothing about SQL. The repository maps rows ↔ aggregate inside the use case's `IDbSession` transaction.
+1. **Load:** one round trip with `QueryMultipleAsync` (root row + child rows) → `Aggregate.Rehydrate(rootRow, childRows)`,
+   an `internal static` factory that bypasses creation rules but not type invariants. Rows are private `record`s in Infrastructure.
+2. **Concurrency:** root table has `RowVersion rowversion`. Update: `UPDATE … WHERE Id = @Id AND RowVersion = @RowVersion`;
+   0 rows → return `Error.Concurrency` (no retry inside the handler).
+3. **Children:** replace strategy for small collections (`DELETE` children + insert current set) or track changes explicitly
+   (added/removed lists kept by the aggregate) for large ones. Choose per aggregate and document it in the repository.
+4. **Domain events:** aggregate collects them; `SaveAsync` writes them to `[{schema}].[Outbox]` in the same transaction and clears them.
+5. **Value objects / strongly-typed ids:** map to columns explicitly in the repository (`Money` → `Amount decimal(19,4)` + `Currency char(3)`);
+   register `SqlMapper.TypeHandler` only for ids used in many queries.
+6. **Parameters:** strings as `DbString { Value, Length, IsAnsi }` matching the column, `decimal` precision matching the column — avoid implicit conversions.
+7. **Tests:** repository round-trip integration test (save → load → equal state, concurrency conflict returns error).
 
 ## Result vs exceptions
 Expected business failures return `Result`/`Error` (profile `error_model: result`). Exceptions only for

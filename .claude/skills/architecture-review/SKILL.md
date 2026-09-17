@@ -12,7 +12,7 @@ user-invocable: false
 
 ## 1. Boundaries & dependencies
 - [ ] No reference to another module except via its Contracts and only if listed in `consumes` — **BLOCKER**
-- [ ] Contracts contain only primitives/SharedKernel types; no domain/EF types — **BLOCKER**
+- [ ] Contracts contain only primitives/SharedKernel types; no domain types or persistence rows — **BLOCKER**
 - [ ] Dependency direction respected for the recipe — **BLOCKER**
 - [ ] No new public types outside Contracts / `{M}Module` — MAJOR
 - [ ] No cross-schema writes or joins in write paths — **BLOCKER**
@@ -25,7 +25,7 @@ user-invocable: false
 - [ ] No abstractions, packages or base classes absent from plan/profile — MAJOR
 
 ## 3. Domain integrity (domain-model modules)
-- [ ] Every business rule in aggregate/domain service; none in handler, endpoint, EF config, SQL — **BLOCKER**
+- [ ] Every business rule in aggregate/domain service; none in handler, endpoint, repository, SQL — **BLOCKER**
 - [ ] No public setters; state changes through intent-named methods — MAJOR
 - [ ] One aggregate modified per transaction, or ADR-backed exception — MAJOR
 - [ ] Other aggregates referenced by id — MAJOR

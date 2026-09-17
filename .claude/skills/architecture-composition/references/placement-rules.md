@@ -33,7 +33,7 @@ src/Modules/{M}/
     EventHandlers/                       handlers for domain events raised in this module
     IntegrationEventHandlers/            consumers of other modules' events
   {Root}.Modules.{M}.Infrastructure/    ← references Application, Domain
-    Persistence/  {M}DbContext.cs, Configurations/{Aggregate}Configuration.cs, Migrations/
+    Persistence/  {Aggregate}Repository.cs (Dapper), {Aggregate}Row records, Outbox writer
     ReadModels/   Dapper/SP-based query implementations for separate-models CQRS
     Adapters/     implementations of Application/Abstractions
     Outbox/
@@ -47,15 +47,15 @@ this module and by other modules. Host references only `{M}Module` (Infrastructu
 ```
 src/Modules/{M}/
   {Root}.Modules.{M}/                   single project
-    Domain/{Aggregate}/                  same content as clean-sliced Domain; NO using of Features, Infrastructure, EF, AspNetCore
+    Domain/{Aggregate}/                  same content as clean-sliced Domain; NO using of Features, Infrastructure, Dapper, SqlClient, AspNetCore
     Features/{Feature}/{UseCase}/        Command/Query, Handler, Validator, Response, Endpoint
-    Infrastructure/Persistence/          DbContext, configurations
+    Infrastructure/Persistence/          {Aggregate}Repository.cs (Dapper), row records
     Infrastructure/Adapters/             only if a real external dependency exists
     {M}Module.cs
   {Root}.Modules.{M}.Contracts/
 ```
 Rules enforced by architecture tests instead of project references:
-`Domain` must not depend on `Features`, `Infrastructure`, `Microsoft.EntityFrameworkCore`, `Microsoft.AspNetCore`.
+`Domain` must not depend on `Features`, `Infrastructure`, `Dapper`, `Microsoft.Data.SqlClient`, `Microsoft.AspNetCore`.
 
 ## 3. pure-slices
 ```
@@ -64,11 +64,11 @@ src/Modules/{M}/
     Features/{Feature}/
       {UseCase}.cs                       single file: request, response, validator, handler, endpoint (nested/static classes)
       — or a folder per use case when the file exceeds ~200 lines —
-    Data/                                DbContext or Dapper connection factory, SQL files, SP wrappers
+    Data/                                SQL constants shared by ≥ 3 slices, SP wrappers
     {M}Module.cs
   {Root}.Modules.{M}.Contracts/          only when topology is modular-monolith
 ```
-Handlers use DbContext/Dapper directly. No repositories, no Domain folder. Business rules live in the
+Handlers use Dapper directly (`IDbSession` for writes, `ISqlConnectionFactory` for reads). No repositories, no Domain folder. Business rules live in the
 handler (transaction script) or in SQL (table-module, reporting).
 
 ## 4. hexagonal-integration
@@ -90,7 +90,7 @@ External DTO types must not appear in Features, Ports or Contracts.
 `{Root}.Modules.{M}.Contracts` contains only:
 - integration events: immutable records of primitives / SharedKernel types, past-tense names, versioned when changed
 - query interfaces exposed to other modules (`IPartnerLookup`) + their DTOs
-- nothing referencing Domain, EF, AspNetCore
+- nothing referencing Domain, Dapper, SqlClient, AspNetCore
 Implementation of exposed queries lives inside the module (Infrastructure/ReadModels or Features).
 
 ## 6. Host / composition root — `*-HOST`
@@ -121,7 +121,8 @@ Rule id = `<recipe code>-<Key>` (e.g. `CS-HANDLER`, `PS-SP`). Plans and reviews 
 | `ENDPOINT` | HTTP endpoint | slice or Host (per convention) | slice | slice file | slice |
 | `RESPONSE` | Read model / query DTO | Application slice Response | slice Response | slice file | slice |
 | `QUERYIMPL` | Query implementation (separate-models) | Infrastructure/ReadModels | Features (Dapper inline) | Handler | Handler |
-| `EFCONFIG` | EF entity configuration | Infrastructure/Persistence | Infrastructure/Persistence | Data/ | Data/ |
+| `PERSIST` | Aggregate repository / SQL mapping | Infrastructure/Persistence | Infrastructure/Persistence | inline in handler | Data/ |
+| `MIGRATION` | Schema change (DbUp script) | db/migrations | db/migrations | db/migrations | db/migrations |
 | `SP` | Stored procedure | Infrastructure (read side only) | Infrastructure (read side only) | Data/ (logic allowed) | Data/ |
 | `EXTCLIENT` | External API client | Infrastructure/Adapters via Application/Abstractions port | Infrastructure/Adapters (port only if 2nd impl/test seam) | Data/ or inline typed HttpClient | Adapters/{System} via Ports/ |
 | `DOMEVENT` | Domain event | Domain/{Aggregate} | Domain/{Aggregate} | — | — |

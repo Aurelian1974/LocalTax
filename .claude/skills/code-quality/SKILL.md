@@ -1,6 +1,6 @@
 ---
 name: code-quality
-description: Mechanical, line-level code quality checklist for C# and T-SQL with stable rule ids (time semantics, usings, accessibility, nullability, async, errors, logging, LINQ/EF, suppressions, hygiene). Mandatory for every changed file in a review and for the implementer's self-check before reporting a step. Use whenever reviewing or finishing code changes, even small ones.
+description: Mechanical, line-level code quality checklist for C# and T-SQL with stable rule ids (time semantics, usings, accessibility, nullability, async, errors, logging, Dapper/SQL, suppressions, hygiene). Mandatory for every changed file in a review and for the implementer's self-check before reporting a step. Use whenever reviewing or finishing code changes, even small ones.
 user-invocable: false
 ---
 # Code quality checklist
@@ -66,10 +66,16 @@ Severity: **B** blocker · **M** major · **m** minor. A red build or another BL
 | Personal data (CNP, patient data, IBAN, credentials) in logs | B |
 | Interpolated string as log template | m |
 
-## CQ-DATA — LINQ / EF / Dapper
+## CQ-DATA — Dapper / SQL access
 | Check | Sev |
 |---|---|
-| `ToList()`/`AsEnumerable()` before filtering; entities materialized for read models; query inside a loop (N+1) | M |
+| Reference to `Microsoft.EntityFrameworkCore` (package, `using`, `DbContext`) | M |
+| Write outside a transaction (`session.BeginAsync`/`CommitAsync`), or command missing `session.Transaction` | M |
+| `CommandDefinition` without `cancellationToken`; Dapper call without `CommandDefinition` on an I/O path | M |
+| Query inside a loop (N+1); row-by-row inserts instead of TVP | M |
+| Query handler using a repository, aggregate or transaction | M |
+| Update of an aggregate root without rowversion check | M |
+| String parameter without `DbString` length/ansi matching the column on an indexed predicate | m |
 | String-concatenated SQL | B |
 
 ## CQ-SUPPRESS — suppressions
@@ -91,6 +97,15 @@ Severity: **B** blocker · **M** major · **m** minor. A red build or another BL
 | `SELECT *`, `NOLOCK`, missing `SET NOCOUNT ON; SET XACT_ABORT ON;` in procedures | M |
 | Implicit conversion (parameter type ≠ column type), function on an indexed column in `WHERE` | M |
 | Dynamic SQL without `sp_executesql` parameters | B |
+| Migration file that existed before `state.base` (or on the default branch) was modified — DbUp will not re-run it | B |
+| Migration not created via `New-Migration.ps1` naming, missing Stage/Rollback header, or `TODO(ai)` left | M |
+| Non-idempotent DDL/DML (no existence guard) | M |
+
+## CQ-SECRET — credentials
+| Check | Sev |
+|---|---|
+| Connection string with credentials, password, token or key in a committed file (`appsettings*.json`, code, scripts) | B |
+| Agent command connecting to or applying scripts on a database (`sqlcmd`, `Invoke-Sqlcmd`, `dotnet ef`), or enabling `Database:MigrateOnStartup` | B |
 
 ## Example findings (format)
 ```

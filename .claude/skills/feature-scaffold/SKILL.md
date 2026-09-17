@@ -13,7 +13,7 @@ Use case name = business verb phrase (`IssueInvoice`, `ListOverdueInvoices`, `On
 ## 2. Generate (never type boilerplate)
 ```powershell
 pwsh scripts/New-Slice.ps1 -RootNamespace <system.root_namespace> -Module <M> -Feature <F> -UseCase <U> `
-  -Kind command|query|consumer -Recipe <recipe> [-ReadAccess dapper|ef] [-EndpointPlacement slice|host] `
+  -Kind command|query|consumer -Recipe <recipe> [-Schema <db_schema>] [-EndpointPlacement slice|host] `
   [-Event <IntegrationEvent>] [-Route <route>] [-Policy <M.Action>] [-SrcRoot src/Modules]
 ```
 The script prints created paths only and refuses to overwrite. Recipe → layout:
@@ -33,4 +33,4 @@ Endpoints/handlers are discovered by convention (`IEndpoint` scan, `*Handler` re
 Build → slice integration test (+ consumer idempotency test) → architecture tests. `grep -rn "TODO(ai)" <slice path>` must return nothing.
 
 ## Template adaptation (once per repository)
-Templates assume SharedKernel types `Result`, `IEndpoint`, `ValidationFilter<T>`, `ToHttpResult()`, `ISqlConnectionFactory`, `IIntegrationEventHandler<T>`. If the repository names them differently, edit `assets/templates/**` once — never work around it per slice.
+Templates assume SharedKernel types `Result`, `IEndpoint`, `ValidationFilter<T>`, `ToHttpResult()`, `IIntegrationEventHandler<T>` and the data access types from `.ai/templates/dotnet/SharedKernel/Data` (`IDbSession`, `ISqlConnectionFactory`) — copy those first. If the repository names them differently, edit `assets/templates/**` once — never work around it per slice.

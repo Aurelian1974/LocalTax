@@ -17,7 +17,7 @@ user-invocable: false
 2. Create `Features/{Feature}/{UseCase}/` with endpoint + handler that **calls the existing service** (strangler facade).
 3. Route traffic to the new endpoint (same route; remove the controller action).
 4. Inline the service method's logic into the handler; delete it from the service when unused.
-5. Replace repository calls with direct DbContext/Dapper usage as the recipe allows.
+5. Replace generic repository calls with direct Dapper usage (pure-slices) or an aggregate repository (domain-model).
 6. Repeat. When a service/repository becomes empty, delete it. Architecture test for the module
    switches from "legacy allowed" to recipe rules when the last use case moves.
 

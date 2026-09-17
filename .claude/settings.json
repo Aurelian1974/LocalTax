@@ -9,6 +9,7 @@
       "Bash(git status:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
+      "Bash(pwsh scripts/New-Migration.ps1:*)",
       "Bash(git rev-parse:*)"
     ]
   }

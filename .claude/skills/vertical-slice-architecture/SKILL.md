@@ -30,7 +30,7 @@ Generate with `scripts/New-Slice.ps1` (skill `feature-scaffold`); template index
 - Endpoints receive the handler via DI parameter injection.
 - Cross-cutting behavior:
   - validation → endpoint filter that resolves `IValidator<TRequest>`
-  - transactions → handler owns `SaveChangesAsync` (one per use case); no ambient unit-of-work layer
+  - transactions → handler owns `session.BeginAsync`/`CommitAsync` (one per use case); uncommitted work rolls back on dispose; no ambient unit-of-work layer
   - logging/tracing → OpenTelemetry + endpoint filters
   - authorization → endpoint `.RequireAuthorization(policy)`
 - Background jobs and event consumers call handlers the same way — they are just other driving adapters.
@@ -41,7 +41,7 @@ Use a mediator only if the profile says `mediator` (ADR required). Do not mix.
 | Shared thing | Where | OK? |
 |---|---|---|
 | Domain model (aggregates, value objects, domain services) | Domain | ✅ that is its purpose |
-| DbContext, connection factory | Infrastructure/Data | ✅ |
+| `IDbSession`, `ISqlConnectionFactory` | SharedKernel (registered by host) | ✅ |
 | Validation rules reused ≥ 3 times | extension methods near Domain value objects | ✅ after third use |
 | Response DTOs | — | ❌ each slice owns its response, even if identical today |
 | Handlers | — | ❌ never inject another slice's handler |
@@ -55,7 +55,7 @@ belongs to another module, use its Contracts.
 ## Commands vs queries inside slices
 - Command handlers: load aggregate(s) by id → invoke behavior → persist → return id/Result. Never
   return rich read models from commands; the client re-queries (or return a minimal response).
-- Query handlers: never load aggregates. Project straight to the response (`AsNoTracking().Select`,
+- Query handlers: never load aggregates. Project straight to the response (Dapper `QueryAsync<Row>`,
   Dapper, view, SP). See `cqrs`.
 
 ## With other styles

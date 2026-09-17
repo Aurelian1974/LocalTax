@@ -14,12 +14,13 @@ public static class __USECASE__
                .WithName("__USECASE__");
     }
 
-    internal sealed class Handler(__DBCTX__ db)
+    internal sealed class Handler(IDbSession session)
     {
         public async Task<Result<Response>> Handle(Request request, CancellationToken ct)
         {
-            // TODO(ai): validate → business rules (transaction script) → persist
-            await db.SaveChangesAsync(ct);
+            await session.BeginAsync(ct);
+            // TODO(ai): validate → business rules (transaction script) → Dapper commands with session.Connection + session.Transaction
+            await session.CommitAsync(ct);
             throw new NotImplementedException();
         }
     }

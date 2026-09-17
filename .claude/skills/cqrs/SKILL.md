@@ -1,6 +1,6 @@
 ---
 name: cqrs
-description: Pragmatic CQRS levels (separate methods, separate models, separate stores) and how to implement each in .NET with EF Core writes and Dapper/views/stored-procedure reads on SQL Server, including projections, outbox-driven read models, consistency expectations and when not to use CQRS. Use when implementing any query slice, list/report/search screens, read performance problems, read models, or when the module profile has cqrs other than none.
+description: Pragmatic CQRS levels (separate methods, separate models, separate stores) and how to implement each in .NET with Dapper aggregate repositories for writes and Dapper/views/stored-procedure reads on SQL Server, including projections, outbox-driven read models, consistency expectations and when not to use CQRS. Use when implementing any query slice, list/report/search screens, read performance problems, read models, or when the module profile has cqrs other than none.
 user-invocable: false
 ---
 # CQRS — pragmatic levels
@@ -8,17 +8,17 @@ user-invocable: false
 | Level | Write side | Read side | Consistency | Use when |
 |---|---|---|---|---|
 | **separate-methods** (CQS) | handler mutates, returns id/Result | handler returns data, never mutates | immediate | default for every module |
-| **separate-models** | aggregates via EF Core | projections straight from the DB to response DTOs (EF `Select`/`AsNoTracking`, Dapper, views, SPs) | immediate (same DB) | domain-model modules; any list/search screen |
+| **separate-models** | aggregates via Dapper repositories | projections straight from SQL to response DTOs (Dapper, views, SPs) | immediate (same DB) | domain-model modules; any list/search screen |
 | **separate-stores** | aggregates + outbox | dedicated read tables/other store updated by projectors | eventual | measured read load, reporting isolation, heavy denormalization |
 
 ## Rules (all levels)
-1. A query never loads an aggregate and never calls `SaveChanges`.
+1. A query never loads an aggregate, never uses a repository and never opens a transaction.
 2. A command never returns a read model larger than an id + minimal status.
 3. Read models are owned by the slice that needs them; do not build a shared "InvoiceDto".
 4. Authorization filters apply to reads too (row-level: tenant, company, user scope) — inside the query.
 
 ## separate-models on SQL Server
-- Simple lists/details: EF Core `AsNoTracking().Where().Select(x => new Response(...))`.
+- Simple lists/details: Dapper `QueryAsync<Row>` with explicit columns from the module's tables.
 - Complex reads (many joins, aggregation, window functions): Dapper + SQL in the slice, or a module-owned
   view `{schema}.{Name}View`; SPs when execution-plan stability or security (EXECUTE-only) matter.
 - Paging: keyset (`WHERE (Date, Id) < (@LastDate, @LastId)`) for large/infinite lists; OFFSET only for
@@ -40,7 +40,7 @@ user-invocable: false
 - Team cannot operate eventual consistency (support, UI patterns) → stay at separate-models.
 
 ## Review checklist
-- [ ] Query handlers free of tracking, aggregates, SaveChanges
+- [ ] Query handlers free of repositories, aggregates, transactions
 - [ ] Every read query has index support or a stated reason
 - [ ] Read-side authorization applied in SQL, not after materialization
 - [ ] Projectors idempotent, ordered, rebuildable (separate-stores only)

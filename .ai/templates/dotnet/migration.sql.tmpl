@@ -1,0 +1,11 @@
+-- Migration: __NAME__
+-- Schema: __SCHEMA__ (module __MODULE__)
+-- Stage: TODO(ai) expand | migrate | contract
+-- Rollback: TODO(ai) statements, or "irreversible (approved at G1)"
+-- Never edit this file after it was applied anywhere or merged; add a new migration instead.
+SET XACT_ABORT ON;
+
+IF SCHEMA_ID(N'__SCHEMA__') IS NULL
+    EXEC(N'CREATE SCHEMA [__SCHEMA__] AUTHORIZATION [dbo]');
+
+-- TODO(ai): idempotent statements only, guarded with OBJECT_ID / COL_LENGTH / INDEXPROPERTY checks.

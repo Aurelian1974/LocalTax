@@ -14,11 +14,11 @@ param(
     [Parameter(Mandatory)] [string] $UseCase,
     [Parameter(Mandatory)] [ValidateSet('command', 'query', 'consumer')] [string] $Kind,
     [Parameter(Mandatory)] [ValidateSet('clean-sliced', 'sliced-domain', 'pure-slices', 'hexagonal-integration')] [string] $Recipe,
-    [ValidateSet('dapper', 'ef')] [string] $ReadAccess = 'dapper',
     [ValidateSet('slice', 'host')] [string] $EndpointPlacement = 'slice',
     [string] $Event,
     [string] $Route,
     [string] $Policy,
+    [string] $Schema,
     [string] $SrcRoot = 'src/Modules',
     [string] $RepoRoot = (Split-Path -Parent $PSScriptRoot)
 )
@@ -32,13 +32,12 @@ if ($Kind -eq 'consumer' -and $Recipe -eq 'pure-slices') { $shape = 'multi' } el
 
 $project = "$RootNamespace.Modules.$Module"
 switch ($Recipe) {
-    'clean-sliced'          { $dir = "$SrcRoot/$Module/$project.Application/Features/$Feature/$UseCase"; $ns = "$project.Application.Features.$Feature.$UseCase"; $dbctx = "I${Module}DbContext" }
-    'sliced-domain'         { $dir = "$SrcRoot/$Module/$project/Features/$Feature/$UseCase";              $ns = "$project.Features.$Feature.$UseCase";             $dbctx = "${Module}DbContext" }
-    'hexagonal-integration' { $dir = "$SrcRoot/$Module/$project/Features/$UseCase";                       $ns = "$project.Features.$UseCase";                      $dbctx = "${Module}DbContext" }
+    'clean-sliced'          { $dir = "$SrcRoot/$Module/$project.Application/Features/$Feature/$UseCase"; $ns = "$project.Application.Features.$Feature.$UseCase" }
+    'sliced-domain'         { $dir = "$SrcRoot/$Module/$project/Features/$Feature/$UseCase";              $ns = "$project.Features.$Feature.$UseCase" }
+    'hexagonal-integration' { $dir = "$SrcRoot/$Module/$project/Features/$UseCase";                       $ns = "$project.Features.$UseCase" }
     'pure-slices'           {
         if ($shape -eq 'single') { $dir = "$SrcRoot/$Module/$project/Features/$Feature"; $ns = "$project.Features.$Feature" }
         else { $dir = "$SrcRoot/$Module/$project/Features/$Feature/$UseCase"; $ns = "$project.Features.$Feature.$UseCase" }
-        $dbctx = "${Module}DbContext"
     }
 }
 
@@ -50,7 +49,7 @@ $tokens = [ordered]@{
     '__USECASE__' = $UseCase
     '__ROUTE__'   = if ($Route) { $Route.TrimStart('/') } else { ((@($Feature, $UseCase) | Where-Object { $_ }) | ForEach-Object { ConvertTo-Kebab $_ }) -join '/' }
     '__POLICY__'  = if ($Policy) { $Policy } else { "$Module.$(if ($Kind -eq 'query') { 'Read' } else { 'Write' })" }
-    '__DBCTX__'   = $dbctx
+    '__SCHEMA__'  = if ($Schema) { $Schema } else { $Module.ToLowerInvariant() }
     '__EVENT__'   = $Event
 }
 
@@ -59,15 +58,13 @@ $templates = if ($shape -eq 'single') {
     @(Get-Item (Join-Path $templateRoot "single/$Kind.cs.tmpl"))
 } else {
     Get-ChildItem (Join-Path $templateRoot "multi/$Kind") -Filter '*.tmpl' | Where-Object {
-        -not ($_.Name -like '*Handler.dapper.cs.tmpl' -and $ReadAccess -ne 'dapper') -and
-        -not ($_.Name -like '*Handler.ef.cs.tmpl' -and $ReadAccess -ne 'ef') -and
         -not ($_.Name -like '*Endpoint.cs.tmpl' -and $EndpointPlacement -eq 'host')
     }
 }
 
 $targetDir = Join-Path $RepoRoot $dir
 $planned = foreach ($t in $templates) {
-    $name = if ($shape -eq 'single') { "$UseCase.cs" } else { $t.Name -replace '\.tmpl$', '' -replace '\.(dapper|ef)\.cs$', '.cs' -replace '__USECASE__', $UseCase }
+    $name = if ($shape -eq 'single') { "$UseCase.cs" } else { $t.Name -replace '\.tmpl$', '' -replace '__USECASE__', $UseCase }
     [pscustomobject]@{ Template = $t.FullName; Path = Join-Path $targetDir $name }
 }
 $existing = $planned | Where-Object { Test-Path $_.Path }

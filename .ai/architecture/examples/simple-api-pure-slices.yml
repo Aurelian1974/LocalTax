@@ -15,10 +15,17 @@ conventions:
   request_dispatch: direct
   validation: manual
   error_model: result
-  data_access: { write: dapper, read: dapper }
+  data_access: { orm: none, write: dapper, read: dapper }
   migrations: dbup
   time: timeprovider
   testing: { unit: xunit, integration: testcontainers, architecture: netarchtest }
+database:                          # created and migrated by you; agents only write migration scripts
+  name: VinylTracker
+  server: '.'                       # informational for agents; the app reads ConnectionStrings:Default
+  auth: windows                     # windows | sql (sql → credentials only in user-secrets)
+  migrations_path: db/migrations    # DbUp scripts <yyyyMMddHHmmss>_<schema>_<name>.sql, created with scripts/New-Migration.ps1
+  apply: user                       # user | host-startup-dev (Database:MigrateOnStartup, enabled by you in Development)
+
 shared_kernel: { project: VinylTracker, allowed: [Result] }
 modules:
   - name: Catalog

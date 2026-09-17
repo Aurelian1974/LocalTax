@@ -33,11 +33,13 @@ Legend: ✅ composes · ⚠️ composes with conditions · ❌ conflicts (same a
 | **separate-stores** | ⚠️ needs measured justification | ✅ with outbox-driven projections; eventual consistency must be acceptable to the business |
 
 ## A6 × A8 (domain logic × persistence)
-| | ef-core | dapper | stored-procedures | event-sourcing |
-|---|---|---|---|---|
-| **transaction-script** | ✅ | ✅ | ✅ logic may live in SP (test it) | ❌ |
-| **table-module** | ⚠️ | ✅ | ✅ | ❌ |
-| **domain-model** | ✅ best mapping support (backing fields, owned types) | ⚠️ writes need manual aggregate persistence; OK for small aggregates | ⚠️ read side only; writes via SP only as dumb persistence of an already-validated aggregate | ✅ |
+| | dapper | stored-procedures | event-sourcing |
+|---|---|---|---|
+| **transaction-script** | ✅ | ✅ logic may live in SP (test it) | ❌ |
+| **table-module** | ✅ | ✅ | ❌ |
+| **domain-model** | ✅ with one repository per aggregate root, rowversion concurrency and outbox in the same transaction (skill `ddd-tactical` §Persistence) | ⚠️ read side only; writes via SP only as dumb persistence of an already-validated aggregate | ✅ |
+
+EF Core is intentionally not an option in this kit (profile `data_access.orm: none`).
 
 ## A1 × A7/A8 (topology constraints)
 | | shared DB writes | cross-schema joins (writes) | in-proc contracts | integration events + outbox |

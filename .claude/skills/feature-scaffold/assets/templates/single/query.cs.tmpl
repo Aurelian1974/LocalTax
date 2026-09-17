@@ -1,3 +1,5 @@
+using Dapper;
+
 namespace __NS__;
 
 public static class __USECASE__
@@ -14,12 +16,17 @@ public static class __USECASE__
                .WithName("__USECASE__");
     }
 
-    internal sealed class Handler(__DBCTX__ db)
+    internal sealed class Handler(ISqlConnectionFactory connections)
     {
+        private const string Sql = """
+            -- TODO(ai): SARGable SELECT from a __MODULE__-owned table/view in [__SCHEMA__]; explicit columns; paging
+            """;
+
         public async Task<IReadOnlyList<Row>> Handle(Request request, CancellationToken ct)
         {
-            // TODO(ai): projection query (AsNoTracking + Select, or Dapper)
-            throw new NotImplementedException();
+            await using var connection = await connections.OpenAsync(ct);
+            var rows = await connection.QueryAsync<Row>(new CommandDefinition(Sql, request, cancellationToken: ct));
+            return rows.AsList();
         }
     }
 }

@@ -1,11 +1,13 @@
 namespace __NS__;
 
-internal sealed class __USECASE__Handler(__DBCTX__ db, TimeProvider clock)
+internal sealed class __USECASE__Handler(IDbSession session, TimeProvider clock)
 {
     public async Task<Result> Handle(__USECASE__Command command, CancellationToken ct)
     {
-        // TODO(ai): load → invoke behavior (domain-model: aggregate method) → if failure return it
-        await db.SaveChangesAsync(ct);
+        await session.BeginAsync(ct);
+        // TODO(ai): domain-model → repository.GetAsync → aggregate behavior (clock.GetUtcNow()) → repository.SaveAsync (rowversion) → outbox rows.
+        //           transaction script → Dapper commands with session.Connection + session.Transaction.
+        await session.CommitAsync(ct);
         return Result.Success();
     }
 }

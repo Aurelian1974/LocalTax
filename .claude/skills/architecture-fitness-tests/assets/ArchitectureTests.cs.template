@@ -66,7 +66,7 @@ public sealed class ModuleBoundaryTests(ProfileFixture fx) : IClassFixture<Profi
             if (contracts is null) continue;
             var result = Types.InAssembly(contracts).ShouldNot()
                 .HaveDependencyOnAny($"{Root}.Modules.{m.Name}.Domain", $"{Root}.Modules.{m.Name}.Application",
-                                     $"{Root}.Modules.{m.Name}.Infrastructure", "Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore")
+                                     $"{Root}.Modules.{m.Name}.Infrastructure", "Dapper", "Microsoft.Data.SqlClient", "Microsoft.AspNetCore")
                 .GetResult();
             Assert.True(result.IsSuccessful, $"{m.Name}.Contracts: {string.Join(", ", result.FailingTypeNames ?? [])}");
         }
@@ -79,7 +79,7 @@ public sealed class ModuleBoundaryTests(ProfileFixture fx) : IClassFixture<Profi
         {
             var domainNs = $"{Root}.Modules.{m.Name}.Domain";
             var result = Types.InAssemblies(ModuleAssemblies(m.Name)).That().ResideInNamespace(domainNs)
-                .ShouldNot().HaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore", "Dapper",
+                .ShouldNot().HaveDependencyOnAny("Microsoft.Data.SqlClient", "Microsoft.AspNetCore", "Dapper",
                     $"{Root}.Modules.{m.Name}.Application", $"{Root}.Modules.{m.Name}.Infrastructure", $"{Root}.Modules.{m.Name}.Features")
                 .GetResult();
             Assert.True(result.IsSuccessful, $"{m.Name}.Domain: {string.Join(", ", result.FailingTypeNames ?? [])}");
@@ -102,6 +102,11 @@ public sealed class ModuleBoundaryTests(ProfileFixture fx) : IClassFixture<Profi
             }
         }
     }
+
+    [Fact(DisplayName = "R-ORM No Entity Framework Core (data_access.orm: none)")]
+    public void No_entity_framework() =>
+        Assert.True(Types.InAssemblies(fx.Profile.Modules.SelectMany(m => ModuleAssemblies(m.Name)))
+            .ShouldNot().HaveDependencyOnAny("Microsoft.EntityFrameworkCore").GetResult().IsSuccessful);
 
     [Fact(DisplayName = "No mediator library when request_dispatch is direct")]
     public void No_mediator() =>

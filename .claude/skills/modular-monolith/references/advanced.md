@@ -21,5 +21,5 @@
 - Not candidates: entities, DTOs, "helpers", enums of one module's states.
 
 ## Per-module performance isolation
-- Separate `DbContext` pools per module; connection resiliency configured per module.
+- One `SqlConnectionFactory` per application (pooling is per connection string); long-running reports use a separate connection string (readable secondary or snapshot isolation).
 - Heavy reporting runs on a readable secondary or snapshot isolation to avoid blocking write modules.

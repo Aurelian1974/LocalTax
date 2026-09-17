@@ -16,7 +16,7 @@ user-invocable: false
 | **A5 Request model** | Same model for reads and writes? | none · separate-methods · separate-models · separate-stores | module |
 | **A6 Domain logic** | Where do business rules live? | transaction-script · table-module · domain-model | module |
 | **A7 Integration** | How do modules interact? | contracts (in-proc) · integration events (+outbox) · messaging | between modules |
-| **A8 Persistence** | How is state accessed? | ef-core · dapper · stored-procedures · (event-sourcing) | module / use case |
+| **A8 Persistence** | How is state accessed? | dapper · stored-procedures · views · (event-sourcing) — no EF Core in this kit | module / use case |
 
 **Composition law.** Exactly one value per axis per module. Styles on *different* axes compose.
 Two styles on the *same* axis in the *same* module conflict. Different modules may choose
@@ -81,7 +81,7 @@ Full matrix with reasoning: `references/compatibility-matrix.md`.
 3. **Rule of three for shared application code.** Duplicate across two slices; extract on the third,
    into the lowest layer that makes sense.
 4. **Ports only where there is a real seam:** external system, second implementation, or a test seam
-   that cannot use the real thing. `IRepository` over EF Core in a pure-slices module is not a seam.
+   that cannot use the real thing. A repository in a pure-slices module is not a seam; aggregate repositories in domain-model modules are persistence, not ports.
 5. **Contracts are the module's only public surface.** Everything else is `internal`.
 6. **Every structural rule is either an architecture test or explicitly `enforce: review`.**
 
@@ -90,9 +90,9 @@ Full matrix with reasoning: `references/compatibility-matrix.md`.
 - **Anemic Domain project** — entities with public setters, logic in handlers, inside `clean-sliced`.
 - **Slice-to-slice calls** — handler injecting another slice's handler. (BLOCKER in clean-sliced)
 - **Common/Shared/Services dumping ground** at module root.
-- **Generic repository over EF Core** — hides the query capabilities you already have.
+- **Generic repository** (`IRepository<T>`) — one repository per aggregate root with intent-revealing methods instead.
 - **Cross-module DB joins in write paths.** (BLOCKER)
-- **Contracts leaking domain types** — integration events carrying aggregates or EF entities. (BLOCKER)
+- **Contracts leaking domain types** — integration events carrying aggregates or persistence rows. (BLOCKER)
 - **Recipe drift** — new slices in a different style than the module's recipe.
 
 ## 7. Output when this skill is used for a decision

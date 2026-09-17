@@ -1,14 +1,26 @@
-using Microsoft.EntityFrameworkCore;
+using Dapper;
 
 namespace __NS__;
 
-internal sealed class __USECASE__Handler(__DBCTX__ db) : IIntegrationEventHandler<__EVENT__>
+internal sealed class __USECASE__Handler(IDbSession session) : IIntegrationEventHandler<__EVENT__>
 {
+    private const string MarkProcessed = """
+        INSERT INTO [__SCHEMA__].[ProcessedEvents] (EventId, ProcessedAtUtc)
+        SELECT @EventId, SYSUTCDATETIME()
+        WHERE NOT EXISTS (SELECT 1 FROM [__SCHEMA__].[ProcessedEvents] WITH (UPDLOCK, HOLDLOCK) WHERE EventId = @EventId);
+        """;
+
     public async Task Handle(__EVENT__ integrationEvent, CancellationToken ct)
     {
-        if (await db.ProcessedEvents.AnyAsync(x => x.EventId == integrationEvent.EventId, ct)) return; // idempotency
-        // TODO(ai): react using this module's model only
-        db.ProcessedEvents.Add(new(integrationEvent.EventId));
-        await db.SaveChangesAsync(ct);
+        await session.BeginAsync(ct);
+        var inserted = await session.Connection.ExecuteAsync(
+            new CommandDefinition(MarkProcessed, new { integrationEvent.EventId }, session.Transaction, cancellationToken: ct));
+        if (inserted == 0)
+        {
+            return; // already processed; disposing the session rolls back the empty transaction
+        }
+
+        // TODO(ai): react using this module's model only, in the same transaction
+        await session.CommitAsync(ct);
     }
 }

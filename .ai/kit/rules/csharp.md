@@ -18,7 +18,7 @@ globs: **/*.cs
 - Records for commands, queries, responses, events, value objects. No mutable DTOs.
 - Logging: structured templates (`"Invoice {InvoiceId} issued"`), no string interpolation, no personal data.
 - No `static` mutable state, no service locator (`IServiceProvider` in business code).
-- LINQ over EF: project with `Select` for reads; never `ToList()` before filtering.
+- Data access: Dapper with `CommandDefinition` (parameters, `session.Transaction`, `cancellationToken`); no Entity Framework Core; SQL in raw string literals with explicit columns.
 - Names: business language from the module; no `Manager`, `Helper`, `Util`, `Processor` suffixes.
 - Comments explain why, not what. XML docs only on Contracts.
 - Before finishing any change, apply skill `code-quality` to the touched files.

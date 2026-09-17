@@ -13,8 +13,12 @@
 | `conventions.request_dispatch` | direct/mediator | implementer, tests | handler dispatch convention |
 | `conventions.validation` | enum | implementer | validation library |
 | `conventions.error_model` | result/exceptions | implementer, reviewer | expected-failure handling |
-| `conventions.data_access.write/read` | enum | db-engineer, implementer | default A8; modules may override in notes with ADR |
-| `conventions.migrations` | enum | db-engineer | migration tool |
+| `conventions.data_access.orm` | none | all | `none`: no EF Core; Dapper + SQL only (architecture test) |
+| `conventions.data_access.write/read` | dapper/stored-procedures/views | db-engineer, implementer | default A8; modules may override in notes with ADR |
+| `conventions.migrations` | dbup | db-engineer | DbUp .sql scripts |
+| `database.name/server/auth` | string | agents (informational) | the database you created; agents never connect to it |
+| `database.migrations_path` | path | New-Migration.ps1, host | DbUp script folder |
+| `database.apply` | user/host-startup-dev | db-engineer, implementer | who applies scripts; agents never apply them |
 | `conventions.time` | enum | implementer | clock abstraction |
 | `conventions.testing.*` | enum | test-engineer | frameworks |
 | `shared_kernel.project/allowed` | list | tests, reviewer | only these types are shareable across modules |

@@ -14,6 +14,6 @@ Strategy per recipe: skill `architecture-fitness-tests` §3.
 - Arrange/Act/Assert separated by blank lines; one behavior per test.
 - Domain tests: pure, no mocks, no DI container.
 - Integration tests: real SQL Server via Testcontainers, `WebApplicationFactory`, `FakeTimeProvider`; replace only external adapters.
-- Do not mock DbContext, handlers or anything the module owns.
+- Do not mock repositories, IDbSession, handlers or anything the module owns.
 - Assertions on observable outcomes: HTTP result, persisted state, outbox messages — not on internal calls.
 - Test data via builders in the test project; no shared mutable fixtures across test classes.

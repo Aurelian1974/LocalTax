@@ -13,8 +13,8 @@ A rule that is not tested is a suggestion. This skill maps profile → tests and
 | `topology: modular-monolith` + modules | each module's assemblies do not reference other modules' non-Contracts assemblies |
 | `modules[].exposes.contracts_project` | Contracts assembly depends only on SharedKernel/BCL |
 | `modules[].consumes` | actual references ⊆ declared `consumes` (fail with the undeclared dependency) |
-| `recipe: clean-sliced` | Domain ↛ Application/Infrastructure/EF/AspNetCore; Application ↛ Infrastructure |
-| `recipe: sliced-domain` | namespace `.Domain` ↛ `.Features`, `.Infrastructure`, EF, AspNetCore |
+| `recipe: clean-sliced` | Domain ↛ Application/Infrastructure/Dapper/SqlClient/AspNetCore; Application ↛ Infrastructure |
+| `recipe: sliced-domain` | namespace `.Domain` ↛ `.Features`, `.Infrastructure`, Dapper, SqlClient, AspNetCore |
 | `recipe: hexagonal-integration` | `.Adapters.*.Dtos` types used only within `.Adapters` |
 | `organization: vertical-slices` | no type in `.Features` depends on a `*Handler` from a different use-case namespace |
 | `request_dispatch: direct` | no reference to MediatR/Mediator packages |
@@ -22,7 +22,8 @@ A rule that is not tested is a suggestion. This skill maps profile → tests and
 | `conventions.time: timeprovider` | no use of `DateTime.Now/UtcNow` in Domain/Application/Features (Roslyn-based or IL scan) |
 | `shared_kernel.allowed` | SharedKernel contains only listed type families (naming allow-list) |
 | visibility | only `{M}Module` and Contracts types are public in module assemblies |
-| `db_schema` | each DbContext model uses only its schema (runtime test builds the model) |
+| `data_access.orm: none` | no assembly references `Microsoft.EntityFrameworkCore` |
+| `db_schema` | SQL constants and migration files of a module write only to its schema (text scan) |
 | `rules[]` with `enforce: test` | one test per rule id, test name starts with the id |
 | `exceptions[]` | test excludes exactly the scope; fails after `expires` |
 

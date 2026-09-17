@@ -5,7 +5,7 @@ namespace __NS__;
 internal sealed class __USECASE__Handler(ISqlConnectionFactory connections)
 {
     private const string Sql = """
-        -- TODO(ai): SARGable SELECT from a __MODULE__-owned table/view; explicit columns; paging
+        -- TODO(ai): SARGable SELECT from a __MODULE__-owned table/view in [__SCHEMA__]; explicit columns; paging
         """;
 
     public async Task<__USECASE__Response> Handle(__USECASE__Query query, CancellationToken ct)

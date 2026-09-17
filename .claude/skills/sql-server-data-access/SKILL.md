@@ -1,6 +1,6 @@
 ---
 name: sql-server-data-access
-description: SQL Server data access standards for .NET systems — T-SQL coding rules, stored procedure contracts, EF Core and Dapper coexistence per module recipe, expand/contract migrations, index design, SARGability, parameter sniffing, isolation levels, RCSI, deadlocks, and execution plan review. Use for any .sql file, migration, stored procedure, Dapper query, EF Core query performance issue, schema change, locking/deadlock problem, or when deciding where SQL logic is allowed.
+description: SQL Server data access standards for .NET systems — T-SQL coding rules, stored procedure contracts, Dapper data access (no EF Core) per module recipe, expand/contract migrations, index design, SARGability, parameter sniffing, isolation levels, RCSI, deadlocks, and execution plan review. Use for any .sql file, migration, stored procedure, Dapper query or repository, query performance issue, schema change, locking/deadlock problem, or when deciding where SQL logic is allowed.
 user-invocable: false
 ---
 # SQL Server Data Access
@@ -32,19 +32,29 @@ user-invocable: false
 - Error signaling: `THROW 50000 + <code>` with codes documented; the app maps codes to `Error`.
 - Grant `EXECUTE` to the module's DB role only.
 
-## 4. EF Core + Dapper coexistence
-- Writes via EF (domain-model) share the connection/transaction with Dapper when needed:
-  `db.Database.GetDbConnection()` + `db.Database.CurrentTransaction?.GetDbTransaction()`.
-- Reads: EF `AsNoTracking().Select()` for simple shapes; Dapper for complex SQL. Never materialize entities to map to DTOs.
-- Compiled queries or `EF.CompileAsyncQuery` for hot paths; `AsSplitQuery` when cartesian explosion appears.
-- Command timeout set per use case for reports; never globally huge.
+## 4. Dapper data access (no EF Core)
+- Writes: `IDbSession` — `BeginAsync` → commands with `session.Connection` + `session.Transaction` → `CommitAsync`. Uncommitted work rolls back on dispose.
+- Reads: `ISqlConnectionFactory.OpenAsync` → `QueryAsync`/`QueryMultipleAsync`; no transaction.
+- Always `CommandDefinition(sql, parameters, transaction, cancellationToken: ct)`.
+- Parameter types match columns: strings as `DbString { Value, Length, IsAnsi }`, decimals with the column precision, dates as `DateOnly`/`DateTimeOffset` matching `date`/`datetimeoffset`.
+- SQL as `const string` raw literals next to their use; explicit columns; schema-qualified names.
+- Multi-row inserts: table-valued parameters (`AsTableValuedParameter`) instead of loops.
+- Domain-model persistence: skill `ddd-tactical` §Persistence (repository per aggregate, rowversion, outbox in the same transaction).
+- `buffered: false` only for large streaming exports.
 
 ## 5. Migrations — expand / migrate / contract
 1. **Expand:** add nullable column / new table / new index `ONLINE = ON` (edition permitting); deploy app writing both.
 2. **Migrate:** backfill in batches (`TOP (5000)` loops with `WAITFOR DELAY` if needed), verifiable counts.
 3. **Contract:** make NOT NULL / drop old column in a later release after all readers moved.
 - Large-table changes: estimate row count and lock impact; schedule; avoid size-of-data operations in peak hours.
-- Every migration idempotent (`IF NOT EXISTS`) for DbUp/sqlproj; EF migrations reviewed as SQL (`dotnet ef migrations script`).
+- Every migration idempotent (`IF NOT EXISTS` / `OBJECT_ID` / `COL_LENGTH` guards).
+
+### DbUp workflow (this kit)
+- Create: `pwsh scripts/New-Migration.ps1 -Schema <db_schema> -Name <snake_case>` → `db/migrations/<yyyyMMddHHmmss>_<schema>_<name>.sql`. Timestamps keep ordering stable across branches and tools.
+- DbUp journals by script name (`dbo.SchemaVersions`): an edited script never re-runs. Fixes are new scripts.
+- Each script runs in its own transaction. Statements that cannot run in a transaction (`ALTER DATABASE`, full-text catalogs) go in a separate script and are flagged in the plan for manual application.
+- Applying: the user runs the scripts (SSMS or the host's `Database:MigrateOnStartup` in Development, template in `.ai/templates/dotnet/Host`). Agents never apply scripts; they list them under `APPLY:`.
+- Other environments: the same scripts through CI/CD or manual deployment.
 
 ## 6. Indexing
 - Clustered key: narrow, static, ever-increasing when possible.

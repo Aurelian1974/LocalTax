@@ -9,7 +9,7 @@ user-invocable: false
 - `{Root}.Modules.{M}.Contracts` — public: integration events, exposed query interfaces + DTOs.
 - `{Root}.Modules.{M}[.*]` — everything else, `internal` by default (recipe decides project split).
 - `{M}Module.cs` — `Add{M}Module` / `Map{M}Module` / optional `Use{M}Module` for background services.
-- Own `DbContext` with `HasDefaultSchema("{db_schema}")` and own migrations history table.
+- Own SQL schema (`db_schema`); all module SQL is schema-qualified; migrations are DbUp scripts named `<ts>_<schema>_<name>.sql`.
 
 ## Communication — choose per interaction
 | Need | Mechanism | Rules |
@@ -42,7 +42,7 @@ module that owns the process). Name the process owner explicitly in the ADR.
 - Contracts reference nothing but SharedKernel.
 - Public types outside Contracts: only `{M}Module` extension class.
 - `consumes` in profile matches actual references (test reads profile.yml).
-- Each DbContext touches only its schema (test inspects model metadata).
+- Module SQL touches only its schema: test scans SQL string constants and migration files for `[other_schema].` in write statements.
 
 ## Extraction path to a service (when forces appear)
 1. Module already communicates only via Contracts + events → replace in-proc bus with broker.
