@@ -45,9 +45,14 @@ shared_kernel:                      # types every module may reference; keep thi
   allowed: [Result, Error, Money, Cnp, Cui, FiscalYear, "strongly-typed ids base"]
 
 platform:                           # shared, AspNetCore-dependent plumbing (schema v1 extension, ADR-0003)
+  - project: LocalTax.Platform.Web
+    contains: [IEndpoint, "MapEndpoints() endpoint discovery mapping every IEndpoint under MapGroup(\"/api\")", "ToHttpResult() Result-to-HTTP mapping"]
+    references: [LocalTax.SharedKernel]
+    referenced_by: "module feature slices and the API host; no security/permission types, no data access, no module types"
   - project: LocalTax.Platform.Security
-    contains: [Permission, IPermissionCatalog, ICurrentUser, "RequirePermission() endpoint convention"]
-    referenced_by: "module feature slices and the API host; no data access, no Identity types, no module types"
+    contains: [Permission, IPermissionCatalog, ICurrentUser, "RequirePermission() endpoint convention", "ISessionValidator: ValueTask<bool> IsValidAsync(ClaimsPrincipal principal, CancellationToken ct)"]
+    references: []
+    referenced_by: "module feature slices and the API host; no data access, no Identity types, no module types, no endpoint-discovery/mapping plumbing"
 
 modules:
   - name: Access
@@ -221,6 +226,15 @@ rules:                              # extra, repo-specific rules; each becomes a
     enforce: test
   - id: R-014
     text: "The claims principal carries only user id and security stamp; authorization never reads role or permission claims from the principal."
+    enforce: test
+  - id: R-015
+    text: "LocalTax.Platform.Web must not depend on Microsoft.AspNetCore.Authentication*, Microsoft.AspNetCore.Authorization, Microsoft.AspNetCore.Identity, Microsoft.Extensions.Identity*, Dapper, Microsoft.Data.SqlClient, LocalTax.Platform.Security or LocalTax.Modules.*."
+    enforce: test
+  - id: R-016
+    text: "LocalTax.Platform.Security must not depend on LocalTax.Platform.Web, Microsoft.AspNetCore.Identity/Microsoft.Extensions.Identity* namespaces, Dapper, Microsoft.Data.SqlClient or LocalTax.Modules.*."
+    enforce: test
+  - id: R-017
+    text: "MapEndpoints() maps every discovered IEndpoint under MapGroup(\"/api\"); every module endpoint route starts with /api/."
     enforce: test
   - id: R-DB-01
     text: "Agents never create, drop or migrate databases and never run sqlcmd, Invoke-Sqlcmd or dotnet ef database update. They only write migration/SQL files; the user applies them."
