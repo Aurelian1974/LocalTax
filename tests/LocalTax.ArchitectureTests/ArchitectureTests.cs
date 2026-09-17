@@ -31,12 +31,18 @@ public sealed class Profile
 {
     public SystemSection System { get; set; } = new();
     public List<ModuleSection> Modules { get; set; } = [];
+    public SharedKernelSection SharedKernel { get; set; } = new();
     public sealed class SystemSection { public string RootNamespace { get; set; } = ""; public string Topology { get; set; } = ""; }
     public sealed class ModuleSection
     {
         public string Name { get; set; } = "";
         public string Recipe { get; set; } = "";
         public List<string> Consumes { get; set; } = [];
+    }
+    public sealed class SharedKernelSection
+    {
+        public string Project { get; set; } = "";
+        public List<string> Allowed { get; set; } = [];
     }
 }
 
@@ -117,19 +123,86 @@ public sealed class ModuleBoundaryTests(ProfileFixture fx) : IClassFixture<Profi
         Assert.True(Types.InAssemblies(fx.Profile.Modules.SelectMany(m => ModuleAssemblies(m.Name)))
             .ShouldNot().HaveDependencyOnAny("MediatR", "Mediator").GetResult().IsSuccessful);
 
-    [Fact(DisplayName = "R-005 EF Core is referenced only by the Migrations project")]
-    public void EF_Core_only_in_Migrations()
+    [Fact(DisplayName = "Modules depend only on their declared consumes")]
+    public void Modules_consume_only_declared_dependencies()
     {
-        var offenders = AllModuleAssemblies()
-            .Where(a => a.GetName().Name is { } name && !name.Contains("Migrations", StringComparison.OrdinalIgnoreCase))
-            .Where(a => a.GetReferencedAssemblies().Any(r =>
-                r.Name is not null &&
-                (r.Name.Equals("Microsoft.EntityFrameworkCore", StringComparison.OrdinalIgnoreCase) ||
-                 r.Name.StartsWith("Microsoft.EntityFrameworkCore.", StringComparison.OrdinalIgnoreCase))))
-            .Select(a => a.GetName().Name)
+        var failures = new List<string>();
+        foreach (var a in fx.Profile.Modules)
+        {
+            var declared = a.Consumes.Select(DeclaredModuleName).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (var b in fx.Profile.Modules.Where(m => m.Name != a.Name))
+            {
+                if (declared.Contains(b.Name)) continue;
+                var users = Types.InAssemblies(ModuleAssemblies(a.Name))
+                    .That().HaveDependencyOn($"{Root}.Modules.{b.Name}")
+                    .GetTypes();
+                if (users.Any())
+                    failures.Add($"{a.Name} depends on {b.Name} without declaring it in consumes: {string.Join(", ", users.Select(t => t.FullName))}");
+            }
+        }
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    [Fact(DisplayName = "Hexagonal adapter DTOs stay within the Adapters layer")]
+    public void Hexagonal_adapter_dtos_stay_within_adapters()
+    {
+        foreach (var m in fx.Profile.Modules.Where(x => x.Recipe == "hexagonal-integration"))
+        {
+            var assemblies = ModuleAssemblies(m.Name).ToList();
+            if (assemblies.Count == 0) continue;
+            var adaptersNs = $"{Root}.Modules.{m.Name}.Adapters";
+            var dtoTypes = Types.InAssemblies(assemblies).That()
+                .ResideInNamespaceStartingWith(adaptersNs).And().HaveNameEndingWith("Dto")
+                .GetTypes().Select(t => t.FullName).OfType<string>().ToArray();
+            if (dtoTypes.Length == 0) continue;
+            var result = Types.InAssemblies(assemblies).That().DoNotResideInNamespaceStartingWith(adaptersNs)
+                .ShouldNot().HaveDependencyOnAny(dtoTypes).GetResult();
+            Assert.True(result.IsSuccessful, $"{m.Name}: DTO leaked outside Adapters: {string.Join(", ", result.FailingTypeNames ?? [])}");
+        }
+    }
+
+    [Fact(DisplayName = "SharedKernel contains only the allowed type families")]
+    public void SharedKernel_contains_only_allowed_families()
+    {
+        var asm = LoadOrNull(fx.Profile.SharedKernel.Project);
+        Assert.True(asm is not null, $"SharedKernel assembly '{fx.Profile.SharedKernel.Project}' not found");
+        var allowed = fx.Profile.SharedKernel.Allowed;
+        var offenders = GetLoadableTypes(asm!)
+            .Where(t => t.IsPublic && !t.IsNested)
+            .Where(t => !IsAllowedSharedKernelType(t, allowed))
+            .Select(t => t.FullName)
             .OfType<string>()
             .ToList();
-        Assert.True(offenders.Count == 0, string.Join(Environment.NewLine, offenders.Select(n => $"{n} references EF Core")));
+        Assert.True(offenders.Count == 0, string.Join(Environment.NewLine, offenders));
+    }
+
+    [Fact(DisplayName = "R-005 No project references EF Core (ADR-0002)")]
+    public void No_project_references_EF_Core()
+    {
+        var root = FindRepositoryRoot();
+        var separator = Path.DirectorySeparatorChar;
+
+        var offenders = Directory.EnumerateFiles(root, "*.*", SearchOption.AllDirectories)
+            .Where(path => path.EndsWith(".csproj", StringComparison.OrdinalIgnoreCase)
+                        || path.EndsWith(".props", StringComparison.OrdinalIgnoreCase))
+            .Where(path => !path.Contains($"{separator}bin{separator}") && !path.Contains($"{separator}obj{separator}"))
+            .Where(path => File.ReadAllText(path).Contains("Microsoft.EntityFrameworkCore", StringComparison.OrdinalIgnoreCase))
+            .Select(path => Path.GetRelativePath(root, path))
+            .ToList();
+
+        Assert.True(offenders.Count == 0,
+            $"EF Core is not allowed (ADR-0002). Remove it from: {string.Join(", ", offenders)}");
+    }
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null && !File.Exists(Path.Combine(directory.FullName, ".ai", "architecture", "profile.yml")))
+        {
+            directory = directory.Parent;
+        }
+
+        return directory?.FullName ?? throw new InvalidOperationException("Repository root (.ai/architecture/profile.yml) not found.");
     }
 
     [Fact(DisplayName = "R-007 No DateTime.Now or UtcNow in module code")]
@@ -169,6 +242,20 @@ public sealed class ModuleBoundaryTests(ProfileFixture fx) : IClassFixture<Profi
         catch (FileNotFoundException) { return null; }
         catch (BadImageFormatException) { return null; }
         catch (FileLoadException) { return null; }
+    }
+
+    private static string DeclaredModuleName(string consumesEntry)
+    {
+        var idx = consumesEntry.IndexOfAny(['.', ':']);
+        return (idx >= 0 ? consumesEntry[..idx] : consumesEntry).Trim();
+    }
+
+    // "strongly-typed ids base" covers any *Id family type; the rest are matched by simple-name prefix.
+    private static bool IsAllowedSharedKernelType(Type t, IReadOnlyList<string> allowed)
+    {
+        var simpleName = t.Name.Split('`')[0];
+        if (simpleName.EndsWith("Id", StringComparison.Ordinal)) return true;
+        return allowed.Any(a => simpleName.Equals(a, StringComparison.OrdinalIgnoreCase));
     }
 
     private static IEnumerable<Assembly> LoadAllFromBin() =>

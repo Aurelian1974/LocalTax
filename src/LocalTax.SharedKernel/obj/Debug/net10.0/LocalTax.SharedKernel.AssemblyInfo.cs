@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("LocalTax.SharedKernel")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ad9ab9460971fa19d6ce00dcb5737f861338fa73")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+5d88ab23e6863a94c62077c925bfb7e85c4eb0b3")]
 [assembly: System.Reflection.AssemblyProductAttribute("LocalTax.SharedKernel")]
 [assembly: System.Reflection.AssemblyTitleAttribute("LocalTax.SharedKernel")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
