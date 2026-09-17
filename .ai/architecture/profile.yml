@@ -22,9 +22,10 @@ conventions:
   validation: fluentvalidation      # fluentvalidation | data-annotations | manual
   error_model: result               # result (Result<T> + ProblemDetails) | exceptions
   data_access:
+    orm: none                   # ef-core | dapper | stored-procedures
     write: dapper                  # ef-core | dapper | stored-procedures
     read: dapper                    # dapper | stored-procedures | ef-core-no-tracking | views
-  migrations: ef-migrations         # EF Core exists ONLY in the Migrations project (R-005); runtime access is Dapper
+  migrations: dbup                  # numbered T-SQL scripts in db/migrations, journaled by DbUp (ADR-0002)
   time: timeprovider                # inject TimeProvider; never DateTime.Now in domain/app code
   testing:
     unit: xunit
@@ -35,6 +36,8 @@ database:
   name: LocalTax
   server: 'VALERIA'           # exact ca în SSMS: localhost, .\SQLEXPRESS, NUME-PC\INSTANTA
   auth: windows               # windows | sql
+  migrations_path: db/migrations
+  apply: user
   created_by: user            # baza și schema le aplici tu; agenții doar scriu fișiere
 
 shared_kernel:                      # types every module may reference; keep this list tiny
@@ -168,7 +171,7 @@ rules:                              # extra, repo-specific rules; each becomes a
     text: "In sliced-domain modules the .Domain namespace does not reference .Features, .Infrastructure, Dapper, EF Core or AspNetCore."
     enforce: test
   - id: R-005
-    text: "EF Core is referenced only by the Migrations project; runtime read and write access is Dapper."
+    text: "No Entity Framework Core anywhere: data access with Dapper over IDbSession/ISqlConnectionFactory; schema changes only as DbUp scripts."
     enforce: test
   - id: R-006
     text: "Tax assessment, penalty accrual and payment allocation live in the Domain of Taxation/Receivables: never in SQL, endpoints, jobs or UI."
