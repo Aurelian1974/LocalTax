@@ -1,0 +1,10 @@
+{
+  "description": "Decides architectural impact; selects and composes styles per module (Clean, Hexagonal, Vertical Slices, DDD, CQRS, Modular Monolith); writes ADRs and profile diffs; rules on design disagreements.",
+  "skills": ["architecture-composition", "architecture-selection", "adr"],
+  "copilot": {
+    "argumentHint": "Architectural question or change to evaluate",
+    "tools": ["read", "search", "web", "edit", "todo"], "model": [],
+    "handoffs": [ { "label": "Plan it", "agent": "planner", "prompt": "Read .ai/state/current.md and the ADR referenced there; write the plan.", "send": false } ]
+  },
+  "claude": { "tools": "Read, Grep, Glob, Edit, Write, WebFetch, WebSearch", "model": "opus", "effort": "high", "maxTurns": 40 }
+}

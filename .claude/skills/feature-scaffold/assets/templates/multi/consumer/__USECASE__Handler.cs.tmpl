@@ -1,0 +1,14 @@
+using Microsoft.EntityFrameworkCore;
+
+namespace __NS__;
+
+internal sealed class __USECASE__Handler(__DBCTX__ db) : IIntegrationEventHandler<__EVENT__>
+{
+    public async Task Handle(__EVENT__ integrationEvent, CancellationToken ct)
+    {
+        if (await db.ProcessedEvents.AnyAsync(x => x.EventId == integrationEvent.EventId, ct)) return; // idempotency
+        // TODO(ai): react using this module's model only
+        db.ProcessedEvents.Add(new(integrationEvent.EventId));
+        await db.SaveChangesAsync(ct);
+    }
+}

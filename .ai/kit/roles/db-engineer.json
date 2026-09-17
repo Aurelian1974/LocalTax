@@ -1,0 +1,10 @@
+{
+  "description": "SQL Server specialist: schema and index design, safe expand/contract migrations, stored procedures, execution plans, locking and concurrency, consistent with module schema ownership and recipe.",
+  "skills": ["sql-server-data-access"],
+  "copilot": {
+    "argumentHint": "Schema change, slow query, deadlock, or plan step",
+    "tools": ["read", "search", "edit", "execute", "todo"], "model": [],
+    "handoffs": [ { "label": "Continue with code", "agent": "implementer", "prompt": "Read .ai/state/current.md and execute next.", "send": false } ]
+  },
+  "claude": { "tools": "Read, Grep, Glob, Edit, Write, Bash", "model": "sonnet", "effort": "medium", "maxTurns": 40 }
+}

@@ -1,0 +1,26 @@
+namespace __NS__;
+
+public static class __USECASE__
+{
+    public sealed record Request(/* TODO(ai) */);
+    public sealed record Response(Guid Id);
+
+    internal sealed class Endpoint : IEndpoint
+    {
+        public void Map(IEndpointRouteBuilder app) =>
+            app.MapPost("/__ROUTE__", async (Request request, Handler handler, CancellationToken ct) =>
+                    (await handler.Handle(request, ct)).ToHttpResult())
+               .RequireAuthorization("__POLICY__")
+               .WithName("__USECASE__");
+    }
+
+    internal sealed class Handler(__DBCTX__ db)
+    {
+        public async Task<Result<Response>> Handle(Request request, CancellationToken ct)
+        {
+            // TODO(ai): validate → business rules (transaction script) → persist
+            await db.SaveChangesAsync(ct);
+            throw new NotImplementedException();
+        }
+    }
+}

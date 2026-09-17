@@ -1,0 +1,6 @@
+{
+  // AI kit: Copilot reads .github/copilot-instructions.md; CLAUDE.md is the same contract for Claude Code.
+  // Without these, VS Code would inject both (duplicate always-on rules on every request).
+  "chat.useClaudeMdFile": false,
+  "chat.useAgentsMdFile": false
+}

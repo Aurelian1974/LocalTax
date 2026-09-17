@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pwsh scripts/New-Slice.ps1:*)",
+      "Bash(pwsh scripts/Set-AiState.ps1:*)",
+      "Bash(pwsh scripts/Build-AiKit.ps1:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git rev-parse:*)"
+    ]
+  }
+}

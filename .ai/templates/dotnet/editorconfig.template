@@ -1,0 +1,8 @@
+# ai-kit:code-quality
+[*.cs]
+csharp_style_namespace_declarations = file_scoped:warning
+dotnet_style_require_accessibility_modifiers = for_non_interface_members:warning
+dotnet_diagnostic.IDE0005.severity = warning   # CQ-USING unnecessary using
+dotnet_diagnostic.IDE0040.severity = warning   # CQ-ACCESS accessibility modifier required
+dotnet_diagnostic.IDE0161.severity = warning   # CQ-USING file-scoped namespace
+dotnet_diagnostic.RS0030.severity = error      # CQ-TIME banned API

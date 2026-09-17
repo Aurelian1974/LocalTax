@@ -1,0 +1,10 @@
+namespace __NS__;
+
+internal sealed class __USECASE__Endpoint : IEndpoint
+{
+    public void Map(IEndpointRouteBuilder app) =>
+        app.MapGet("/__ROUTE__", async ([AsParameters] __USECASE__Query query, __USECASE__Handler handler, CancellationToken ct) =>
+                Results.Ok(await handler.Handle(query, ct)))
+           .RequireAuthorization("__POLICY__")
+           .WithName("__USECASE__");
+}

@@ -1,0 +1,31 @@
+{
+  "description": "Read-only reviewer: checks changes against the Architecture Profile, plan, module recipe, security, data safety and performance; returns a severity-ranked verdict. Never edits.",
+  "skills": [
+    "architecture-review",
+    "code-quality",
+    "architecture-composition"
+  ],
+  "copilot": {
+    "argumentHint": "Scope (default: task changes from state)",
+    "tools": [
+      "read",
+      "search",
+      "execute"
+    ],
+    "model": [],
+    "handoffs": [
+      {
+        "label": "Fix findings",
+        "agent": "implementer",
+        "prompt": "Fix BLOCKER and MAJOR findings from the review above only.",
+        "send": false
+      }
+    ]
+  },
+  "claude": {
+    "tools": "Read, Grep, Glob, Bash",
+    "model": "opus",
+    "effort": "medium",
+    "maxTurns": 30
+  }
+}

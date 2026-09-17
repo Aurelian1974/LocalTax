@@ -1,0 +1,6 @@
+{
+  "description": "Read-only investigator. Maps code relevant to a task, reports conventions in use and deviations from the Architecture Profile, finds root causes for bugs. Returns facts with file references only.",
+  "skills": ["architecture-composition"],
+  "copilot": { "tools": ["read", "search", "web"], "userInvocable": false, "model": [] },
+  "claude": { "tools": "Read, Grep, Glob, WebFetch", "model": "haiku", "effort": "low", "maxTurns": 30 }
+}

@@ -1,0 +1,25 @@
+namespace __NS__;
+
+public static class __USECASE__
+{
+    public sealed record Request(/* TODO(ai): filters, paging */);
+    public sealed record Row(/* TODO(ai): columns */);
+
+    internal sealed class Endpoint : IEndpoint
+    {
+        public void Map(IEndpointRouteBuilder app) =>
+            app.MapGet("/__ROUTE__", async ([AsParameters] Request request, Handler handler, CancellationToken ct) =>
+                    Results.Ok(await handler.Handle(request, ct)))
+               .RequireAuthorization("__POLICY__")
+               .WithName("__USECASE__");
+    }
+
+    internal sealed class Handler(__DBCTX__ db)
+    {
+        public async Task<IReadOnlyList<Row>> Handle(Request request, CancellationToken ct)
+        {
+            // TODO(ai): projection query (AsNoTracking + Select, or Dapper)
+            throw new NotImplementedException();
+        }
+    }
+}

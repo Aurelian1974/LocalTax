@@ -1,0 +1,7 @@
+P:System.DateTime.Now;CQ-TIME: inject TimeProvider and use GetUtcNow()
+P:System.DateTime.UtcNow;CQ-TIME: inject TimeProvider and use GetUtcNow()
+P:System.DateTime.Today;CQ-TIME: inject TimeProvider; convert to a named zone only at the presentation boundary
+P:System.DateTimeOffset.Now;CQ-TIME: inject TimeProvider and use GetUtcNow()
+P:System.DateTimeOffset.UtcNow;CQ-TIME: inject TimeProvider and use GetUtcNow()
+M:System.TimeProvider.GetLocalNow;CQ-TIME: business code uses UTC; convert with TimeZoneInfo at the presentation boundary (suppress there with a justification)
+M:System.DateTime.ToLocalTime;CQ-TIME: depends on server time zone; convert with an explicit TimeZoneInfo

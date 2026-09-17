@@ -1,0 +1,12 @@
+name: ai-kit-check
+on:
+  pull_request:
+    paths: ['.ai/kit/**', '.claude/**', '.github/agents/**', '.github/copilot-instructions.md', 'CLAUDE.md']
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Generated AI files in sync with .ai/kit
+        shell: pwsh
+        run: ./scripts/Build-AiKit.ps1 -Check

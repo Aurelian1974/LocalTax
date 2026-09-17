@@ -1,0 +1,84 @@
+# Example: ERP with Romanian fiscal compliance. Heterogeneous modules inside one deployable.
+version: 1
+status: active
+system:
+  name: ValyanERP
+  root_namespace: Valyan.Erp
+  topology: modular-monolith
+  runtime: dotnet-10
+  frontend: react-ts
+  database: sqlserver
+  adr: docs/adr/0001-architecture-baseline.md
+conventions:
+  api_style: minimal-apis
+  endpoint_placement: slice
+  request_dispatch: direct
+  validation: fluentvalidation
+  error_model: result
+  data_access: { write: ef-core, read: dapper }
+  migrations: dbup
+  time: timeprovider
+  testing: { unit: xunit, integration: testcontainers, architecture: netarchtest }
+shared_kernel:
+  project: Valyan.Erp.SharedKernel
+  allowed: [Result, Error, Money, Cui, Iban, EntityId]
+modules:
+  - name: Invoicing
+    purpose: "Issue, correct and cancel invoices; e-Factura submission lifecycle."
+    subdomain: core
+    recipe: clean-sliced
+    macro: clean
+    organization: vertical-slices
+    domain_logic: domain-model
+    cqrs: separate-models
+    db_schema: invoicing
+    exposes:
+      contracts_project: Valyan.Erp.Modules.Invoicing.Contracts
+      integration_events: [InvoiceIssued, InvoiceCancelled]
+      queries: [IInvoiceSummaryQuery]
+    consumes: ["Partners.Contracts: IPartnerLookup"]
+    skills: [ro-fiscal-compliance]
+    notes: "Numbering series and VAT rules are aggregate invariants. SPs allowed only on the read side."
+  - name: EFactura
+    purpose: "Adapter to ANAF e-Factura / SPV: upload, status polling, message download."
+    subdomain: generic
+    recipe: hexagonal-integration
+    macro: hexagonal
+    organization: vertical-slices
+    domain_logic: transaction-script
+    cqrs: separate-methods
+    db_schema: efactura
+    exposes: { contracts_project: Valyan.Erp.Modules.EFactura.Contracts, integration_events: [EFacturaAccepted, EFacturaRejected], queries: [] }
+    consumes: ["Invoicing: InvoiceIssued"]
+    skills: [ro-fiscal-compliance]
+    notes: "Anti-corruption layer: ANAF XML/DTOs never leave the adapter."
+  - name: Partners
+    purpose: "Customers/suppliers master data, partner types, CUI validation."
+    subdomain: supporting
+    recipe: pure-slices
+    macro: none
+    organization: vertical-slices
+    domain_logic: transaction-script
+    cqrs: separate-methods
+    db_schema: partners
+    exposes: { contracts_project: Valyan.Erp.Modules.Partners.Contracts, integration_events: [PartnerUpdated], queries: [IPartnerLookup] }
+    consumes: []
+  - name: Reporting
+    purpose: "SAF-T D406 generation and management reports."
+    subdomain: supporting
+    recipe: pure-slices
+    macro: none
+    organization: vertical-slices
+    domain_logic: table-module
+    cqrs: separate-stores
+    db_schema: reporting
+    exposes: { contracts_project: Valyan.Erp.Modules.Reporting.Contracts, integration_events: [], queries: [] }
+    consumes: ["Invoicing: InvoiceIssued", "Partners: PartnerUpdated"]
+    skills: [ro-fiscal-compliance]
+    notes: "Read-only views over other schemas are allowed here and only here (exception on R-002)."
+rules:
+  - { id: R-001, text: "Modules reference other modules only through Contracts.", enforce: test }
+  - { id: R-002, text: "No cross-schema joins in write paths.", enforce: review }
+  - { id: R-003, text: "Fiscal amounts use Money (decimal(19,4)); rounding only via SharedKernel rules.", enforce: test }
+exceptions:
+  - { rule: R-002, scope: "Reporting (read-only views)", adr: docs/adr/0004-reporting-read-views.md, expires: null }

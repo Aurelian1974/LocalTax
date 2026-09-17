@@ -1,0 +1,77 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# ARCHITECTURE PROFILE — single source of truth for every AI agent and for the
+# architecture tests. Change it only together with an ADR in docs/adr/.
+# Schema reference: .claude/skills/architecture-composition/references/profile-schema.md
+# ─────────────────────────────────────────────────────────────────────────────
+version: 1
+status: draft            # draft | active  (agents refuse M/L/XL tasks while draft, except /choose-architecture)
+
+system:
+  name: CHANGE_ME
+  root_namespace: Company.Product
+  topology: modular-monolith        # monolith | modular-monolith | microservices
+  runtime: dotnet-10
+  frontend: none                    # none | react-ts | blazor | razor-pages
+  database: sqlserver               # sqlserver | postgresql | ...
+  adr: docs/adr/0001-architecture-baseline.md
+
+conventions:
+  api_style: minimal-apis           # minimal-apis | controllers
+  endpoint_placement: slice         # slice (endpoint lives in the slice) | host (endpoints in API project)
+  request_dispatch: direct          # direct (handlers injected) | mediator (only with ADR: needs pipeline behaviors)
+  validation: fluentvalidation      # fluentvalidation | data-annotations | manual
+  error_model: result               # result (Result<T> + ProblemDetails) | exceptions
+  data_access:
+    write: dapper                  # ef-core | dapper | stored-procedures
+    read: dapper                    # dapper | stored-procedures | ef-core-no-tracking | views
+  migrations: ef-migrations         # ef-migrations | dbup | sqlproj
+  time: timeprovider                # inject TimeProvider; never DateTime.Now in domain/app code
+  testing:
+    unit: xunit
+    integration: localdb           # testcontainers | localdb | none
+    architecture: netarchtest       # netarchtest | archunitnet
+
+database:
+  name: LocalTax
+  server: 'VALERIA'           # exact ca în SSMS: localhost, .\SQLEXPRESS, NUME-PC\INSTANTA
+  auth: windows               # windows | sql
+  created_by: user            # baza și schema le aplici tu; agenții doar scriu fișiere
+
+shared_kernel:                      # types every module may reference; keep this list tiny
+  project: Company.Product.SharedKernel
+  allowed: [Result, Error, Money, "strongly-typed ids base"]
+
+modules:
+  - name: CHANGE_ME
+    purpose: "One sentence: which business capability this module owns."
+    subdomain: core                 # core | supporting | generic
+    recipe: clean-sliced            # clean-sliced | sliced-domain | pure-slices | hexagonal-integration | layered-legacy
+    # Explicit axis values. The recipe sets defaults; override only with a reason.
+    macro: clean                    # clean | hexagonal | onion | layered | none
+    organization: vertical-slices   # vertical-slices | technical-layers
+    domain_logic: domain-model      # domain-model | transaction-script | table-module
+    cqrs: separate-models           # none | separate-methods | separate-models | separate-stores
+    db_schema: changeme
+    exposes:                        # the ONLY things other modules may use
+      contracts_project: Company.Product.Modules.ChangeMe.Contracts
+      integration_events: []
+      queries: []
+    consumes: []                    # e.g. [ "Partners.Contracts: IPartnerLookup", "Invoicing: InvoiceIssued" ]
+    skills: []                      # extra domain skills, e.g. [ ro-fiscal-compliance ]
+    notes: ""
+
+rules:                              # extra, repo-specific rules; each becomes an architecture test if testable
+  - id: R-001
+    text: "Modules reference other modules only through their Contracts project."
+    enforce: test
+  - id: R-002
+    text: "No cross-schema joins in write paths. Reporting reads go through the Reporting module views."
+    enforce: review
+  - id: R-DB-01
+    text: "Agents never create, drop or migrate databases and never run sqlcmd, Invoke-Sqlcmd or dotnet ef database update. They only write migration/SQL files; the user applies them."
+    enforce: review
+  - id: R-DB-02
+    text: "Connection strings containing passwords never go into committed files; use user-secrets."
+    enforce: review
+
+exceptions: []                      # - { rule: R-002, scope: "Reporting.Vat", adr: docs/adr/0007-... , expires: 2027-03-01 }

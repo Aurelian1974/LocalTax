@@ -1,0 +1,10 @@
+{
+  "description": "Turns a task and any architecture decision into an executable slice-by-slice plan with exact file placement per module recipe, tests, migration and rollback. Makes no architectural decisions.",
+  "skills": ["architecture-composition"],
+  "copilot": {
+    "argumentHint": "Task or ADR path",
+    "tools": ["read", "search", "edit", "todo"], "model": [],
+    "handoffs": [ { "label": "Implement", "agent": "implementer", "prompt": "Read .ai/state/current.md and execute next.", "send": false } ]
+  },
+  "claude": { "tools": "Read, Grep, Glob, Edit, Write", "model": "opus", "effort": "medium", "maxTurns": 30 }
+}

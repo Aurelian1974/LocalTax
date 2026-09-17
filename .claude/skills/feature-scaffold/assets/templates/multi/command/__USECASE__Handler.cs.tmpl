@@ -1,0 +1,11 @@
+namespace __NS__;
+
+internal sealed class __USECASE__Handler(__DBCTX__ db, TimeProvider clock)
+{
+    public async Task<Result> Handle(__USECASE__Command command, CancellationToken ct)
+    {
+        // TODO(ai): load → invoke behavior (domain-model: aggregate method) → if failure return it
+        await db.SaveChangesAsync(ct);
+        return Result.Success();
+    }
+}

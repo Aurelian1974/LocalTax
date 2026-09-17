@@ -1,0 +1,34 @@
+{
+  "description": "Implements an approved plan one step at a time following the Architecture Profile placement rules and module recipe skills; scaffolds with scripts; builds and tests after each step; reports deviations instead of improvising.",
+  "skills": [
+    "architecture-composition",
+    "vertical-slice-architecture",
+    "feature-scaffold",
+    "code-quality"
+  ],
+  "copilot": {
+    "argumentHint": "Plan step, or a small change",
+    "tools": [
+      "read",
+      "search",
+      "edit",
+      "execute",
+      "todo"
+    ],
+    "model": [],
+    "handoffs": [
+      {
+        "label": "Review",
+        "agent": "reviewer",
+        "prompt": "Read .ai/state/current.md and review the task's changes.",
+        "send": false
+      }
+    ]
+  },
+  "claude": {
+    "tools": "Read, Grep, Glob, Edit, Write, Bash",
+    "model": "sonnet",
+    "effort": "medium",
+    "maxTurns": 60
+  }
+}

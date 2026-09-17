@@ -1,0 +1,10 @@
+{
+  "description": "Writes tests at the level each module recipe requires (domain unit, slice integration on real SQL Server, contract, architecture fitness tests from the profile); writes failing tests first for bugfixes. Never changes production code.",
+  "skills": ["architecture-fitness-tests"],
+  "copilot": {
+    "argumentHint": "Steps to cover, bug to reproduce, or: sync architecture tests",
+    "tools": ["read", "search", "edit", "execute", "todo"], "model": [],
+    "handoffs": [ { "label": "Fix to green", "agent": "implementer", "prompt": "A failing test reproduces the issue (see state). Implement the minimal fix.", "send": false } ]
+  },
+  "claude": { "tools": "Read, Grep, Glob, Edit, Write, Bash", "model": "sonnet", "effort": "medium", "maxTurns": 40 }
+}

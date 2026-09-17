@@ -1,0 +1,124 @@
+// Architecture tests driven by .ai/architecture/profile.yml
+// Packages: xunit, NetArchTest.Rules, YamlDotNet
+using System.Reflection;
+using NetArchTest.Rules;
+using YamlDotNet.Serialization;
+using YamlDotNet.Serialization.NamingConventions;
+
+namespace {Root}.ArchitectureTests;
+
+public sealed class ProfileFixture
+{
+    public Profile Profile { get; }
+    public ProfileFixture()
+    {
+        var path = Path.Combine(SolutionRoot(), ".ai", "architecture", "profile.yml");
+        Profile = new DeserializerBuilder().WithNamingConvention(UnderscoredNamingConvention.Instance)
+            .IgnoreUnmatchedProperties().Build().Deserialize<Profile>(File.ReadAllText(path));
+    }
+    private static string SolutionRoot()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir is not null && !File.Exists(Path.Combine(dir.FullName, ".ai", "architecture", "profile.yml"))) dir = dir.Parent;
+        return dir?.FullName ?? throw new InvalidOperationException("Repository root not found.");
+    }
+}
+
+public sealed class Profile
+{
+    public SystemSection System { get; set; } = new();
+    public List<ModuleSection> Modules { get; set; } = [];
+    public sealed class SystemSection { public string RootNamespace { get; set; } = ""; public string Topology { get; set; } = ""; }
+    public sealed class ModuleSection
+    {
+        public string Name { get; set; } = "";
+        public string Recipe { get; set; } = "";
+        public List<string> Consumes { get; set; } = [];
+    }
+}
+
+public sealed class ModuleBoundaryTests(ProfileFixture fx) : IClassFixture<ProfileFixture>
+{
+    private string Root => fx.Profile.System.RootNamespace;
+
+    [Fact(DisplayName = "R-001 Modules reference other modules only through Contracts")]
+    public void Modules_do_not_reference_other_module_internals()
+    {
+        var failures = new List<string>();
+        foreach (var a in fx.Profile.Modules)
+        foreach (var b in fx.Profile.Modules.Where(m => m.Name != a.Name))
+        {
+            var result = Types.InAssemblies(ModuleAssemblies(a.Name))
+                .ShouldNot().HaveDependencyOnAny(InternalNamespaces(b.Name))
+                .GetResult();
+            if (!result.IsSuccessful)
+                failures.AddRange(result.FailingTypeNames.Select(t => $"{t} → {b.Name} internals"));
+        }
+        Assert.True(failures.Count == 0, string.Join(Environment.NewLine, failures));
+    }
+
+    [Fact(DisplayName = "Contracts depend only on SharedKernel and BCL")]
+    public void Contracts_are_pure()
+    {
+        foreach (var m in fx.Profile.Modules)
+        {
+            var contracts = LoadOrNull($"{Root}.Modules.{m.Name}.Contracts");
+            if (contracts is null) continue;
+            var result = Types.InAssembly(contracts).ShouldNot()
+                .HaveDependencyOnAny($"{Root}.Modules.{m.Name}.Domain", $"{Root}.Modules.{m.Name}.Application",
+                                     $"{Root}.Modules.{m.Name}.Infrastructure", "Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore")
+                .GetResult();
+            Assert.True(result.IsSuccessful, $"{m.Name}.Contracts: {string.Join(", ", result.FailingTypeNames ?? [])}");
+        }
+    }
+
+    [Fact(DisplayName = "Domain is persistence- and delivery-ignorant (domain-model recipes)")]
+    public void Domain_purity()
+    {
+        foreach (var m in fx.Profile.Modules.Where(x => x.Recipe is "clean-sliced" or "sliced-domain"))
+        {
+            var domainNs = $"{Root}.Modules.{m.Name}.Domain";
+            var result = Types.InAssemblies(ModuleAssemblies(m.Name)).That().ResideInNamespace(domainNs)
+                .ShouldNot().HaveDependencyOnAny("Microsoft.EntityFrameworkCore", "Microsoft.AspNetCore", "Dapper",
+                    $"{Root}.Modules.{m.Name}.Application", $"{Root}.Modules.{m.Name}.Infrastructure", $"{Root}.Modules.{m.Name}.Features")
+                .GetResult();
+            Assert.True(result.IsSuccessful, $"{m.Name}.Domain: {string.Join(", ", result.FailingTypeNames ?? [])}");
+        }
+    }
+
+    [Fact(DisplayName = "Slices do not depend on other slices' handlers")]
+    public void Slices_are_isolated()
+    {
+        foreach (var m in fx.Profile.Modules)
+        {
+            var handlers = Types.InAssemblies(ModuleAssemblies(m.Name)).That().HaveNameEndingWith("Handler").GetTypes().ToList();
+            foreach (var h in handlers)
+            {
+                var others = handlers.Where(o => o.Namespace != h.Namespace).Select(o => o.FullName!).ToArray();
+                if (others.Length == 0) continue;
+                var result = Types.InAssemblies(ModuleAssemblies(m.Name)).That().ResideInNamespace(h.Namespace!)
+                    .ShouldNot().HaveDependencyOnAny(others).GetResult();
+                Assert.True(result.IsSuccessful, $"{h.Namespace} depends on another slice: {string.Join(", ", result.FailingTypeNames ?? [])}");
+            }
+        }
+    }
+
+    [Fact(DisplayName = "No mediator library when request_dispatch is direct")]
+    public void No_mediator() =>
+        Assert.True(Types.InAssemblies(fx.Profile.Modules.SelectMany(m => ModuleAssemblies(m.Name)))
+            .ShouldNot().HaveDependencyOnAny("MediatR", "Mediator").GetResult().IsSuccessful);
+
+    // ── helpers ───────────────────────────────────────────────────────────────
+    private IEnumerable<Assembly> ModuleAssemblies(string module) =>
+        AppDomain.CurrentDomain.GetAssemblies().Concat(LoadAllFromBin())
+            .Where(a => a.GetName().Name is { } n && n.StartsWith($"{Root}.Modules.{module}") && !n.EndsWith(".Contracts") && !n.Contains("Tests"))
+            .DistinctBy(a => a.FullName);
+
+    private string[] InternalNamespaces(string module) =>
+        [$"{Root}.Modules.{module}.Domain", $"{Root}.Modules.{module}.Application", $"{Root}.Modules.{module}.Infrastructure", $"{Root}.Modules.{module}.Features"];
+
+    private static Assembly? LoadOrNull(string name) { try { return Assembly.Load(name); } catch { return null; } }
+
+    private static IEnumerable<Assembly> LoadAllFromBin() =>
+        Directory.EnumerateFiles(AppContext.BaseDirectory, "*.dll").Select(f => { try { return Assembly.LoadFrom(f); } catch { return null; } }).OfType<Assembly>();
+}

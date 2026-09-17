@@ -1,0 +1,41 @@
+{
+  "description": "Entry point for non-trivial changes. Classifies the task, runs the Research → Architecture → Plan → Data → Implement → Test → Review pipeline through subagents with quality gates and file-based, tool-portable state.",
+  "skills": [
+    "orchestration"
+  ],
+  "copilot": {
+    "argumentHint": "Change to make, or: resume",
+    "tools": [
+      "agent",
+      "read",
+      "search",
+      "todo",
+      "execute"
+    ],
+    "agents": [
+      "researcher",
+      "architect",
+      "planner",
+      "db-engineer",
+      "implementer",
+      "test-engineer",
+      "reviewer"
+    ],
+    "model": [],
+    "handoffs": [
+      {
+        "label": "Implement plan (only after G1 approval)",
+        "agent": "implementer",
+        "prompt": "Read .ai/state/current.md and execute next.",
+        "send": false
+      },
+      {
+        "label": "Review changes",
+        "agent": "reviewer",
+        "prompt": "Read .ai/state/current.md and review the task's changes.",
+        "send": false
+      }
+    ]
+  },
+  "claude": null
+}

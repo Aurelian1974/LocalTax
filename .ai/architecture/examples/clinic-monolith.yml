@@ -1,0 +1,50 @@
+# Example: medical practice app. Plain monolith deployable, module boundaries per capability.
+version: 1
+status: active
+system:
+  name: ValyanClinic
+  root_namespace: Valyan.Clinic
+  topology: monolith
+  runtime: dotnet-10
+  frontend: blazor
+  database: sqlserver
+  adr: docs/adr/0001-architecture-baseline.md
+conventions:
+  api_style: minimal-apis
+  endpoint_placement: host
+  request_dispatch: direct
+  validation: fluentvalidation
+  error_model: result
+  data_access: { write: ef-core, read: ef-core-no-tracking }
+  migrations: ef-migrations
+  time: timeprovider
+  testing: { unit: xunit, integration: testcontainers, architecture: netarchtest }
+shared_kernel: { project: Valyan.Clinic.SharedKernel, allowed: [Result, Error, Cnp] }
+modules:
+  - name: Consultations
+    purpose: "Consultation records, diagnoses (ICD-10), prescriptions."
+    subdomain: core
+    recipe: clean-sliced
+    macro: clean
+    organization: vertical-slices
+    domain_logic: domain-model
+    cqrs: separate-models
+    db_schema: clinical
+    exposes: { contracts_project: Valyan.Clinic.Consultations.Contracts, integration_events: [ConsultationClosed], queries: [] }
+    consumes: []
+    notes: "Closed consultations are immutable; corrections are addenda (invariant)."
+  - name: Scheduling
+    purpose: "Appointments and availability."
+    subdomain: supporting
+    recipe: sliced-domain
+    macro: none
+    organization: vertical-slices
+    domain_logic: domain-model
+    cqrs: separate-methods
+    db_schema: scheduling
+    exposes: { contracts_project: Valyan.Clinic.Scheduling.Contracts, integration_events: [], queries: [] }
+    consumes: []
+    notes: "Overlap rules live in the Schedule aggregate; small domain, no separate Domain project."
+rules:
+  - { id: R-001, text: "Patient identifiers never appear in logs.", enforce: review }
+exceptions: []

@@ -1,0 +1,19 @@
+<!-- ai-kit:code-quality — build-time enforcement of skill code-quality (CQ-TIME, CQ-USING, CQ-ACCESS, CQ-NULL) -->
+<Project>
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <!-- Required for IDE0005 (unnecessary usings) to run on build. CS1591 is silenced; XML docs are required only on Contracts by review. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <!-- Targeted errors instead of TreatWarningsAsErrors, so existing warnings do not break adoption. -->
+    <WarningsAsErrors>$(WarningsAsErrors);RS0030;IDE0005;IDE0040;CS8600;CS8602;CS8603;CS8604;CS8618</WarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- Check nuget.org for the latest stable version before installing. -->
+    <PackageReference Include="Microsoft.CodeAnalysis.BannedApiAnalyzers" Version="3.3.4" PrivateAssets="all" />
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)BannedSymbols.txt" />
+  </ItemGroup>
+</Project>
