@@ -1,6 +1,6 @@
 # 0002 — Use DbUp SQL scripts for schema changes and remove EF Core from the solution
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-09-17
 - **Deciders:** product owner, dev team (1–3 devs)
 - **Modules:** all (system-wide convention)
